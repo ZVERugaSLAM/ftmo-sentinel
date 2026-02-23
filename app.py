@@ -2,6 +2,17 @@ import streamlit as st
 import yfinance as yf
 import pandas as pd
 from datetime import datetime
+# Функція з мінімальним кешем (2 секунди), щоб уникнути помилок ліміту
+@st.cache_data(ttl=2)
+def get_price_safe(ticker_symbol):
+    try:
+        # Використовуємо download, він стабільніший для Streamlit Cloud
+        data = yf.download(ticker_symbol, period="1d", interval="1m", progress=False)
+        if not data.empty:
+            return float(data['Close'].iloc[-1])
+        return None
+    except:
+        return None
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
