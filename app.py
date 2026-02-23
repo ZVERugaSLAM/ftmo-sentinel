@@ -9,31 +9,27 @@ from datetime import datetime
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
-    st.warning("Ключ GEMINI_API_KEY не знайдено в Secrets.")
+    st.warning("⚠️ Ключ GEMINI_API_KEY не знайдено в Secrets.")
 
-# Бронебійна функція AI (обходить 404 помилку)
 def get_sentinel_analysis(asset, query):
-    prompt = f"""
-    Ти — Sentinel AI, елітний фінансовий аналітик для FTMO трейдера.
-    Твій стиль: лаконічний, діловий, без води.
-    Аналізуй актив {asset} згідно запиту: {query}.
-    Давай конкретні припущення (міцний прогноз/середній/слабкий) та згадуй аномалії.
-    """
-    
-    # Перебираємо робочі назви моделей Google
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
-    last_error = ""
-    
-    for model_name in models_to_try:
+    # Пряме звернення до найшвидшої моделі
+    # Якщо Flash недоступна, спробуємо Pro.
+    try:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        response = model.generate_content(
+            f"Ти — Sentinel AI, фінансовий аналітик. Актив: {asset}. Запит: {query}. Стиль: лаконічний, професійний."
+        )
+        return response.text
+    except Exception as e_flash:
         try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
+            # Резервний варіант (іноді Flash має регіональні обмеження)
+            model_backup = genai.GenerativeModel('gemini-pro')
+            response = model_backup.generate_content(
+                f"Ти — Sentinel AI. Актив: {asset}. Запит: {query}."
+            )
             return response.text
-        except Exception as e:
-            last_error = str(e)
-            continue
-            
-    return f"Помилка AI: Жодна модель не відповіла. Деталі: {last_error}"
+        except Exception as e_pro:
+            return f"❌ Помилка AI: Неможливо підключитися до API. Оновіть бібліотеку. Деталі: {e_flash}"
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
