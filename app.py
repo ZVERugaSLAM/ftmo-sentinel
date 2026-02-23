@@ -163,22 +163,28 @@ with tab2:
         "US100 (Nasdaq)": "CAPITALCOM:US100",
         "EURUSD": "OANDA:EURUSD"
     }
-    selected_asset = st.selectbox("Інструмент для аналізу:", list(TV_TICKERS.keys()))
-    
-    tv_widget = f"""
-    <div style="height: 500px;">
-      <div id="tradingview_chart" style="height: 100%;"></div>
-      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-      <script type="text/javascript">
-      new TradingView.widget({{
-        "autosize": true, "symbol": "{TV_TICKERS[selected_asset]}", "interval": "15",
-        "timezone": "Europe/Kyiv", "theme": "dark", "style": "1", "locale": "uk",
-        "toolbar_bg": "#f1f3f6", "enable_publishing": false, "container_id": "tradingview_chart"
-      }});
-      </script>
-    </div>
-    """
-    st.components.v1.html(tv_widget, height=500)
+
+    # 1. Ізолюємо віджет TradingView
+    @st.fragment
+    def render_tradingview():
+        selected_asset = st.selectbox("Інструмент для аналізу:", list(TV_TICKERS.keys()), key="tv_select")
+        
+        tv_widget = f"""
+        <div style="height: 500px;">
+          <div id="tradingview_chart" style="height: 100%;"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+          <script type="text/javascript">
+          new TradingView.widget({{
+            "autosize": true, "symbol": "{TV_TICKERS[selected_asset]}", "interval": "15",
+            "timezone": "Europe/Kyiv", "theme": "dark", "style": "1", "locale": "uk",
+            "toolbar_bg": "#f1f3f6", "enable_publishing": false, "container_id": "tradingview_chart"
+          }});
+          </script>
+        </div>
+        """
+        st.components.v1.html(tv_widget, height=500)
+
+    render_tradingview()
 
     st.divider()
     st.subheader("🤖 Sentinel AI: Аналіз")
@@ -190,35 +196,45 @@ with tab2:
 
     st.divider()
     st.subheader("🤖 Sentinel Quick Analysis")
-    query_col, asset_col = st.columns([2, 1])
     
-    with asset_col:
-        analyze_target = st.text_input("Введіть актив (напр. BTC, OIL):", value="XAUUSD", key="asset_input")
-    with query_col:
-        user_query = st.text_input("Позачергове питання до ШІ:", key="query_input")
-    
-    if user_query:
-        with st.spinner('Sentinel аналізує ринкові дані та макро-фон...'):
-            answer = get_sentinel_analysis(analyze_target, user_query)
-            st.chat_message("assistant").write(answer)
-    
-    macro_df = get_sentinel_macro_stable()
-    
-    if not macro_df.empty:
-        st.dataframe(
-            macro_df, 
-            use_container_width=True, 
-            hide_index=True,
-            column_config={
-                "Вплив": st.column_config.TextColumn("Impact", width="small"),
-                "Дата": st.column_config.TextColumn("Date", width="small"),
-                "Час": st.column_config.TextColumn("Time", width="small"),
-            }
-        )
-    else:
-        st.error("🔌 Помилка зв'язку з сервером новин.")
+    # 2. Ізолюємо логіку запитів до AI
+    @st.fragment
+    def render_ai_chat():
+        query_col, asset_col = st.columns([2, 1])
+        
+        with asset_col:
+            analyze_target = st.text_input("Введіть актив (напр. BTC, OIL):", value="XAUUSD", key="asset_input")
+        with query_col:
+            user_query = st.text_input("Позачергове питання до ШІ:", key="query_input")
+        
+        if user_query:
+            with st.spinner('Sentinel аналізує ринкові дані та макро-фон...'):
+                answer = get_sentinel_analysis(analyze_target, user_query)
+                st.chat_message("assistant").write(answer)
 
-    st.caption("✅ Джерело: JSON Stream. Фільтр: USD, JPY, EUR, GBP.")
+    render_ai_chat()
+    
+    # 3. Ізолюємо таблицю новин
+    @st.fragment
+    def render_macro_news():
+        macro_df = get_sentinel_macro_stable()
+        
+        if not macro_df.empty:
+            st.dataframe(
+                macro_df, 
+                use_container_width=True, 
+                hide_index=True,
+                column_config={
+                    "Вплив": st.column_config.TextColumn("Impact", width="small"),
+                    "Дата": st.column_config.TextColumn("Date", width="small"),
+                    "Час": st.column_config.TextColumn("Time", width="small"),
+                }
+            )
+        else:
+            st.error("🔌 Помилка зв'язку з сервером новин.")
+        st.caption("✅ Джерело: JSON Stream. Фільтр: USD, JPY, EUR, GBP.")
+
+    render_macro_news()
 
 with tab3:
     st.header("🚨 Crisis Watch & Liquidity (Big Five)")
