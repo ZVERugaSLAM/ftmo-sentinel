@@ -12,24 +12,26 @@ else:
     st.warning("⚠️ Ключ GEMINI_API_KEY не знайдено в Secrets.")
 
 def get_sentinel_analysis(asset, query):
-    # Пряме звернення до найшвидшої моделі
-    # Якщо Flash недоступна, спробуємо Pro.
-    try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        response = model.generate_content(
-            f"Ти — Sentinel AI, фінансовий аналітик. Актив: {asset}. Запит: {query}. Стиль: лаконічний, професійний."
-        )
-        return response.text
-    except Exception as e_flash:
+    prompt = f"""
+    Ти — Sentinel AI, елітний фінансовий аналітик.
+    Актив: {asset}. Запит: {query}.
+    Стиль: лаконічний, професійний, без води. 
+    """
+    
+    # Створюємо масив з назвами моделей, від найновішої до старішої
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    
+    for model_name in models_to_try:
         try:
-            # Резервний варіант (іноді Flash має регіональні обмеження)
-            model_backup = genai.GenerativeModel('gemini-pro')
-            response = model_backup.generate_content(
-                f"Ти — Sentinel AI. Актив: {asset}. Запит: {query}."
-            )
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content(prompt)
             return response.text
-        except Exception as e_pro:
-            return f"❌ Помилка AI: Неможливо підключитися до API. Оновіть бібліотеку. Деталі: {e_flash}"
+        except Exception as e:
+            # Якщо модель видала помилку (напр. 404), ідемо до наступної в списку
+            continue
+            
+    # Якщо ЖОДНА модель не спрацювала, виводимо прохання оновити requirements
+    return "❌ Помилка AI: Не вдалося знайти сумісну версію моделі. Перевірте, чи оновлено google-generativeai>=0.7.2 у requirements.txt."
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
