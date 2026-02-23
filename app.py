@@ -38,28 +38,65 @@ with cols[3]:
 tab1, tab2 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence"])
 
 with tab1:
-    # Твій перевірений калькулятор
+    # 1. Мапінг для отримання цін
+    PRICE_TICKERS = {
+        "XAUUSD": "GC=F",
+        "XAGUSD": "SI=F",
+        "XCUUSD": "HG=F",
+        "EURUSD": "EURUSD=X",
+        "US100":  "NQ=F",
+        "GER40":  "YM=F", # Наближено до Dax
+        "DXY":    "DX-Y.NYB",
+        "JP225":  "NK=F"
+    }
+
     st.sidebar.header("🛡 Ризик-менеджмент")
-    three_losses = st.sidebar.toggle("3 збитки поспіль (Ризик 0.5%)")
+    three_losses = st.sidebar.toggle("3 поспіль SL (Ризик 0.5%)")
     
     col1, col2 = st.columns(2)
     with col1:
-        balance = st.number_input("Баланс ($)", value=100000, step=1000)
-        risk_pct = st.selectbox("Ризик %", [1.0, 0.5, 0.25], index=0 if not three_losses else 1)
+        balance = st.number_input("Баланс рахунку ($)", value=100000, step=1000)
+        # Твоє правило: 1% стандарт, 0.5% після 3 збитків
+        risk_pct = 0.5 if three_losses else 1.0
+        st.info(f"Поточний ризик: **{risk_pct}%**")
+        
     with col2:
-        asset = st.selectbox("Актив", list(FTMO_SPECS.keys()))
+        asset = st.selectbox("Актив для торгівлі", list(FTMO_SPECS.keys()), key="calc_asset")
         sl_points = st.number_input("Stop Loss (points)", value=100, step=10)
 
-    spec = FTMO_SPECS[asset]
-    risk_usd = balance * (0.005 if three_losses else (risk_pct / 100))
-    
-    # Розрахунок лота
-    one_point_val = spec['val'] / spec['tick']
-    lot = risk_usd / (sl_points * one_point_val)
-    final_lot = max(round(lot, 2), 0.01)
+    # 2. Отримання та відображення поточної ціни
+    try:
+        ticker_symbol = PRICE_TICKERS.get(asset, "GC=F")
+        current_price = yf.Ticker(ticker_symbol).fast_info['last_price']
+        st.markdown(f"### ⚡ Поточна ціна {asset}: `{current_price:.2f}`")
+    except:
+        st.markdown(f"### ⚡ Поточна ціна {asset}: `Не вдалося завантажити`")
 
-    st.success(f"### Рекомендований лот: **{final_lot}**")
-    st.write(f"💵 Ризик у грошах: **${risk_usd:.2f}**")
+    # 3. Розрахунок лота
+    spec = FTMO_SPECS[asset]
+    risk_usd = balance * (risk_pct / 100)
+    
+    # Формула: Лот = Ризик / (SL_в_пунктах * Вартість_1_пункту)
+    one_point_val = spec['val'] / spec['tick']
+    
+    # Враховуємо конвертацію, якщо валюта активу не USD (напр. GER40 в EUR)
+    conv_rate = 1.0
+    if spec['curr'] != "USD":
+        try:
+            pair = f"{spec['curr']}USD=X"
+            conv_rate = yf.Ticker(pair).fast_info['last_price']
+        except:
+            conv_rate = 1.0
+
+    raw_lot = risk_usd / (sl_points * one_point_val * conv_rate)
+    final_lot = max(round(raw_lot, 2), 0.01)
+
+    st.divider()
+    st.success(f"## Рекомендований лот: **{final_lot}**")
+    
+    col_a, col_b = st.columns(2)
+    col_a.metric("Ризик у валюті", f"${risk_usd:,.2f}")
+    col_b.metric("Вартість пункту (1 лот)", f"${one_point_val * conv_rate:.2f}")
 
 with tab2:
     st.header("📈 Технічний аналіз та Макро")
