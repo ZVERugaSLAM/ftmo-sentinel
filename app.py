@@ -12,30 +12,24 @@ else:
     st.warning("⚠️ Ключ GEMINI_API_KEY не знайдено в Secrets.")
 
 def get_sentinel_analysis(asset, query):
-    prompt = f"Ти — Sentinel AI. Актив: {asset}. Запит: {query}."
+    prompt = f"Ти — Sentinel AI, елітний фінансовий аналітик. Актив: {asset}. Запит: {query}. Стиль: лаконічний."
     
-    # Використовуємо лише актуальні назви моделей
-    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro']
-    error_logs = []
+    # Використовуємо моделі, які ТОЧНО є у твоєму списку доступних
+    models_to_try = [
+        'gemini-2.5-flash',       # Найновіша стабільна
+        'gemini-2.0-flash',       # Швидка та надійна
+        'gemini-3-flash-preview'  # Експериментальна потужна
+    ]
     
-    try:
-        # Перевірка доступних моделей для твого ключа (виведеться в логи, якщо все впаде)
-        available_models = [m.name for m in genai.list_models()]
-        error_logs.append(f"Доступні моделі: {available_models}")
-    except Exception as e:
-        error_logs.append(f"Не вдалося отримати список моделей: {str(e)}")
-
     for model_name in models_to_try:
         try:
-            # Спробуємо викликати модель напряму
             model = genai.GenerativeModel(model_name)
             response = model.generate_content(prompt)
             return response.text
-        except Exception as e:
-            error_logs.append(f"[{model_name}]: {str(e)}")
+        except Exception:
             continue
             
-    return "❌ Помилка API:\n" + "\n".join(error_logs)
+    return "❌ Помилка: Жодна з моделей Gemini 2.x/3.x не відповіла. Перевірте статус сервісу."
 
     for err in error_logs:
         detailed_error += f"- {err}\n"
