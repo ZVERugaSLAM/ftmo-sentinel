@@ -122,46 +122,62 @@ with tab1:
     col_b.metric("Вартість пункту (1.00 лот)", f"${one_point_val * conv_rate:.4f}")
 
 with tab2:
-    st.header("📈 Технічний аналіз та Макро")
+    st.header("📈 Macro Intelligence Hub")
     
-    # Оновлений словник тікерів (використовуємо джерела, доступні для віджетів)
+    # 1. ТЕХНІЧНИЙ ГРАФІК (TradingView)
     TV_TICKERS = {
-        "DXY (Index)": "CAPITALCOM:DXY", # Змінено для обходу блокування
+        "DXY (Index)": "CAPITALCOM:DXY",
         "XAUUSD (Gold)": "OANDA:XAUUSD",
-        "XAGUSD (Silver)": "OANDA:XAGUSD",
-        "XCUUSD (Copper)": "CAPITALCOM:COPPER",
-        "EURUSD": "OANDA:EURUSD",
+        "JP225 (Nikkei)": "CAPITALCOM:JP225",
         "US100 (Nasdaq)": "CAPITALCOM:US100",
-        "GER40 (Dax)": "CAPITALCOM:DE40",
-        "JP225 (Nikkei)": "CAPITALCOM:JP225"
+        "EURUSD": "OANDA:EURUSD"
     }
+    selected_asset = st.selectbox("Оберіть інструмент:", list(TV_TICKERS.keys()))
     
-    selected_name = st.selectbox("Оберіть інструмент:", list(TV_TICKERS.keys()), key="macro_asset_selector")
-    tv_symbol = TV_TICKERS[selected_name]
-    
-    # Віджет з фіксом для символів
-    tradingview_widget = f"""
-    <div style="height: 600px;">
+    tv_widget = f"""
+    <div style="height: 500px;">
       <div id="tradingview_chart" style="height: 100%;"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
       new TradingView.widget({{
-        "autosize": true,
-        "symbol": "{tv_symbol}",
-        "interval": "15",
-        "timezone": "Europe/Kyiv",
-        "theme": "dark",
-        "style": "1",
-        "locale": "uk",
-        "toolbar_bg": "#f1f3f6",
-        "enable_publishing": false,
-        "allow_symbol_change": true,
-        "container_id": "tradingview_chart"
+        "autosize": true, "symbol": "{TV_TICKERS[selected_asset]}", "interval": "15",
+        "timezone": "Europe/Kyiv", "theme": "dark", "style": "1", "locale": "uk",
+        "toolbar_bg": "#f1f3f6", "enable_publishing": false, "container_id": "tradingview_chart"
       }});
       </script>
     </div>
     """
-    st.components.v1.html(tradingview_widget, height=600)
+    st.components.v1.html(tv_widget, height=500)
+
+    st.divider()
+
+    # 2. АНАЛІЗ ШІ ТА ПРОГНОЗИ (Тут я буду давати висновки)
+    st.subheader("🤖 Sentinel AI: Аналіз та Прогнози")
+    
+    col_ai1, col_ai2 = st.columns(2)
+    with col_ai1:
+        st.info("🎯 **Сценарій для Gold (XAUUSD)**")
+        st.write("- Якщо CPI вийде > прогнозу: Долар 🚀, Золото 📉 (Шукаємо Sell).")
+        st.write("- Якщо CPI вийде < прогнозу: Долар 📉, Золото 🚀 (Шукаємо Buy).")
+        
+    with col_ai2:
+        st.warning("🏮 **Сценарій для Nikkei (JP225)**")
+        st.write("- Слабкість JPY підтримує експортерів Японії. Ріст USDJPY = Ріст JP225.")
+        st.write("- Очікуємо волатильність на відкритті Лондонської сесії.")
+
+    st.divider()
+
+    # 3. ЛАЙВ ТАБЛИЦЯ НОВИН (Investing Live Calendar з фільтрами)
+    st.subheader("📡 Live Economic Calendar")
+    st.write("Використовуйте фільтри всередині таблиці для вибору USD, JPY або EUR.")
+    
+    calendar_html = """
+    <div style="height: 600px;">
+        <iframe src="https://sslecal2.forexprostools.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=1,2,3,4,5,6,7,8,9,10,11,12,25,32,35,43&calType=day&timeZone=55&lang=1" 
+        width="100%" height="100%" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
+    </div>
+    """
+    st.components.v1.html(calendar_html, height=600)
 
     st.markdown("---")
     st.subheader("📅 Пріоритетні новини тижня")
