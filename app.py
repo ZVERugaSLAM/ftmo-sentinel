@@ -45,7 +45,7 @@ with tab1:
         "XCUUSD": "HG=F",
         "EURUSD": "EURUSD=X",
         "US100":  "NQ=F",
-        "GER40":  "YM=F", # Наближено до Dax
+        "GER40":  "YM=F",
         "DXY":    "DX-Y.NYB",
         "JP225":  "NK=F"
     }
@@ -55,31 +55,33 @@ with tab1:
     
     col1, col2 = st.columns(2)
     with col1:
-        balance = st.number_input("Баланс рахунку ($)", value=100000, step=1000)
-        # Твоє правило: 1% стандарт, 0.5% після 3 збитків
+        balance = st.number_input("Баланс рахунку ($)", value=100000.0, step=1000.0, format="%.2f")
         risk_pct = 0.5 if three_losses else 1.0
         st.info(f"Поточний ризик: **{risk_pct}%**")
         
     with col2:
         asset = st.selectbox("Актив для торгівлі", list(FTMO_SPECS.keys()), key="calc_asset")
-        sl_points = st.number_input("Stop Loss (points)", value=100, step=10)
+        # Дозволяємо дробові значення для SL (float)
+        sl_points = st.number_input("Stop Loss (points)", value=100.0, step=1.0, format="%.1f")
 
-    # 2. Отримання та відображення поточної ціни
+    # 2. Отримання ціни з динамічною точністю
     try:
         ticker_symbol = PRICE_TICKERS.get(asset, "GC=F")
         current_price = yf.Ticker(ticker_symbol).fast_info['last_price']
-        st.markdown(f"### ⚡ Поточна ціна {asset}: `{current_price:.2f}`")
+        
+        # Визначаємо точність виводу залежно від активу
+        precision = 5 if asset == "EURUSD" else (3 if asset in ["XAGUSD", "DXY"] else 2)
+        price_str = f"{current_price:.{precision}f}"
+        
+        st.markdown(f"### ⚡ Поточна ціна {asset}: `{price_str}`")
     except:
-        st.markdown(f"### ⚡ Поточна ціна {asset}: `Не вдалося завантажити`")
+        st.markdown(f"### ⚡ Поточна ціна {asset}: `Data Error`")
 
     # 3. Розрахунок лота
     spec = FTMO_SPECS[asset]
     risk_usd = balance * (risk_pct / 100)
-    
-    # Формула: Лот = Ризик / (SL_в_пунктах * Вартість_1_пункту)
     one_point_val = spec['val'] / spec['tick']
     
-    # Враховуємо конвертацію, якщо валюта активу не USD (напр. GER40 в EUR)
     conv_rate = 1.0
     if spec['curr'] != "USD":
         try:
@@ -92,11 +94,12 @@ with tab1:
     final_lot = max(round(raw_lot, 2), 0.01)
 
     st.divider()
+    # Результат лотності залишаємо 2 знаки (як у терміналі для вводу)
     st.success(f"## Рекомендований лот: **{final_lot}**")
     
     col_a, col_b = st.columns(2)
     col_a.metric("Ризик у валюті", f"${risk_usd:,.2f}")
-    col_b.metric("Вартість пункту (1 лот)", f"${one_point_val * conv_rate:.2f}")
+    col_b.metric("Вартість пункту (1.00 лот)", f"${one_point_val * conv_rate:.4f}")
 
 with tab2:
     st.header("📈 Технічний аналіз та Макро")
