@@ -131,13 +131,12 @@ with tab2:
 
     st.divider()
 
-    # 📅 LIVE КАЛЕНДАР
+    # 3. ЄДИНИЙ LIVE КАЛЕНДАР (Автоматичний)
     st.subheader("📅 Світовий Економічний Календар (Live)")
-    cal_html = """
-    <div style="height: 800px;">
-        <iframe src="https://sslecal2.forexprostools.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=1,2,3,4,5,6,7,8,9,10,11,12,25,32,35,43&calType=day&timeZone=55&lang=1" 
-        width="100%" height="100%" frameborder="0" allowtransparency="true" marginwidth="0" marginheight="0"></iframe>
-    </div>
-    """
-    st.components.v1.html(cal_html, height=800)
-    st.caption("💡 Використовуй фільтр у календарі для вибору USD/JPY.")
+    
+    # Використовуємо прямий метод iframe
+    calendar_url = "https://sslecal2.forexprostools.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&features=datepicker,timezone&countries=1,2,3,4,5,6,7,8,9,10,11,12,25,32,35,43&calType=day&timeZone=55&lang=1"
+    
+    st.components.v1.iframe(calendar_url, height=800, scrolling=True)
+    
+    st.caption("💡 Якщо календар не завантажився, вимкніть AdBlock або спробуйте інший браузер.")
