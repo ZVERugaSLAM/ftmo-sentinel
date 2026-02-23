@@ -1,7 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import streamlit.components.v1 as components # Використовуємо стандартний компонент
+import streamlit.components.v1 as html_components # ЗМІНЕНО ТУТ
 from datetime import datetime
 
 # --- КОНФІГУРАЦІЯ ---
@@ -68,7 +68,7 @@ with tab2:
     # Вибір інструменту
     tv_symbol = st.selectbox("Оберіть інструмент:", 
                             ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40"],
-                            key="macro_asset_selector") # Додано унікальний ключ
+                            key="macro_asset_selector")
     
     tradingview_widget = f"""
     <div class="tradingview-widget-container" style="height: 600px;">
@@ -94,11 +94,10 @@ with tab2:
     """
     
     # Виклик компонента
-    components.html(tradingview_widget, height=600, key=f"tv_chart_{tv_symbol}")
+    html_components.html(tradingview_widget, height=600, key=f"tv_chart_{tv_symbol}") # ЗМІНЕНО ТУТ
     
     st.markdown("---")
     st.subheader("📅 Macro Calendar")
-    # Тут лишаємо твою таблицю новин, яку ми створили раніше
     events = [
         {"Час (EET)": "15:30", "Подія": "Core CPI m/m", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "0.3%", "Попереднє": "0.2%"},
         {"Час (EET)": "21:00", "Подія": "FOMC Meeting Minutes", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "-", "Попереднє": "-"}
