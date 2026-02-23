@@ -1,18 +1,27 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import feedparser
 from datetime import datetime
 # Функція з мінімальним кешем (2 секунди), щоб уникнути помилок ліміту
-@st.cache_data(ttl=2)
-def get_price_safe(ticker_symbol):
+@st.cache_data(ttl=3600) # Оновлюємо календар раз на годину
+def get_macro_calendar():
     try:
-        # Використовуємо download, він стабільніший для Streamlit Cloud
-        data = yf.download(ticker_symbol, period="1d", interval="1m", progress=False)
-        if not data.empty:
-            return float(data['Close'].iloc[-1])
-        return None
+        # Використовуємо надійний RSS потік новин
+        url = "https://www.dailyfx.com/feeds/economic-calendar"
+        feed = feedparser.parse(url)
+        entries = []
+        for entry in feed.entries:
+            # Фільтруємо лише твої валюти
+            if any(curr in entry.title for curr in ["USD", "JPY", "EUR", "GBP"]):
+                entries.append({
+                    "Дата/Час": entry.published[5:16],
+                    "Подія": entry.title,
+                    "Деталі": entry.summary[:100] + "..."
+                })
+        return pd.DataFrame(entries).head(10)
     except:
-        return None
+        return pd.DataFrame([{"Статус": "Календар тимчасово недоступний"}])
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
@@ -113,7 +122,9 @@ with tab1:
     col_b.metric("Вартість пункту (1.00 лот)", f"${one_point_val * conv_rate:.4f}")
 
 with tab2:
-    st.header("📈 Технічний аналіз та Макро")
+    st.subheader("📡 Live Macro Feed (Auto-updated)")
+    df_live_news = get_macro_calendar()
+    st.dataframe(df_live_news, use_container_width=True)
     
     # Словник для мапінгу: Твоя назва -> Тікер TradingView
     TV_TICKERS = {
