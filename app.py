@@ -1,8 +1,7 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
 import requests
-from bs4 import BeautifulSoup
+import pandas as pd
+import streamlit as st
+import yfinance as yf  # Додано імпорт
 from datetime import datetime
 
 # --- КОНФІГУРАЦІЯ ---
@@ -20,65 +19,62 @@ FTMO_SPECS = {
     "JP225":  {"contract": 10, "tick": 0.01, "val": 0.10, "curr": "JPY"}
 }
 
-@st.cache_data(ttl=2)
+# Виправлена функція отримання ціни
+@st.cache_data(ttl=5) # Збільшив до 5 сек для стабільності
 def get_price_safe(ticker_symbol):
     try:
-        ticker = yf.Ticker(ticker_symbol)
-        return ticker.fast_info['last_price']
+        t = yf.Ticker(ticker_symbol)
+        # Використовуємо history замість fast_info, це надійніше на Streamlit Cloud
+        data = t.history(period="1d", interval="1m")
+        if not data.empty:
+            return data['Close'].iloc[-1]
+        return None
     except:
         return None
 
-# --- SENTINEL MACRO ENGINE (Парсинг новин) ---
-@st.cache_data(ttl=300) # Оновлення кожні 5 хвилин
-def get_sentinel_macro():
+# НОВА СТАБІЛЬНА ФУНКЦІЯ НОВИН
+@st.cache_data(ttl=600)
+def get_sentinel_macro_stable():
     try:
-        url = "https://www.dailyfx.com/economic-calendar"
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.content, 'html.parser')
+        url = "https://nfs.faireconomy.media/ff_calendar_thisweek.json"
+        response = requests.get(url, timeout=10)
+        data = response.json()
         
         events = []
-        # Пошук рядків подій у календарі DailyFX
-        rows = soup.find_all('div', class_='dfx-economicCalendar__eventRow')
-        
-        for row in rows:
-            try:
-                curr_element = row.find('span', class_='dfx-economicCalendar__currency')
-                curr = curr_element.text.strip() if curr_element else ""
+        for item in data:
+            if item['country'] in ["USD", "JPY", "EUR", "GBP"]:
+                impact_map = {"High": "🔴", "Medium": "🟠", "Low": "🟡"}
+                impact_icon = impact_map.get(item['impact'], "⚪")
                 
-                # Фільтр для твоїх основних активів
-                if curr in ["USD", "JPY", "EUR", "GBP"]:
-                    time = row.find('div', class_='dfx-economicCalendar__time').text.strip()
-                    title = row.find('div', class_='dfx-economicCalendar__eventTitle').text.strip()
-                    
-                    # Визначення важливості
-                    importance_div = row.find('div', class_='dfx-economicCalendar__importance')
-                    imp_text = importance_div.get('class', []) if importance_div else []
-                    importance = "🔴" if "high" in str(imp_text).lower() else "🟠"
-                    
-                    events.append({
-                        "Час": time,
-                        "Валюта": curr,
-                        "Подія": title,
-                        "Вплив": importance
-                    })
-            except:
-                continue
+                # Коректне форматування часу
+                dt_obj = datetime.fromisoformat(item['date'].replace('Z', '+00:00'))
+                event_time = dt_obj.strftime("%H:%M")
+                event_date = dt_obj.strftime("%m-%d")
+                
+                events.append({
+                    "Дата": event_date,
+                    "Час": event_time,
+                    "Валюта": item['country'],
+                    "Подія": item['title'],
+                    "Вплив": impact_icon,
+                    "Прогноз": item.get('forecast', '-'),
+                    "Попереднє": item.get('previous', '-')
+                })
         
-        return pd.DataFrame(events)
+        df = pd.DataFrame(events)
+        return df
     except Exception as e:
-        return pd.DataFrame(columns=["Статус"], data=[["Помилка завантаження даних"]])
+        return pd.DataFrame()
 
 # --- ВЕРХНЯ ПАНЕЛЬ ---
 st.title("🛰 FTMO Sentinel: Intelligence & Risk")
 cols = st.columns(4)
-# (Метрики залишаються як були)
 with cols[0]:
     val = get_price_safe("DX-Y.NYB")
     st.metric("DXY (Долар)", f"{val:.2f}" if val else "---")
 with cols[1]:
     val = get_price_safe("^VIX")
-    st.metric("VIX (Індекс страху)", f"{val:.2f}" if val else "---")
+    st.metric("VIX (Страх)", f"{val:.2f}" if val else "---")
 with cols[2]:
     val = get_price_safe("GC=F")
     st.metric("Gold (XAU)", f"${val:.2f}" if val else "---")
@@ -86,11 +82,9 @@ with cols[3]:
     val = get_price_safe("^GSPC")
     st.metric("S&P 500", f"{val:.2f}" if val else "---")
 
-# --- ВКЛАДКИ ---
 tab1, tab2 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence"])
 
 with tab1:
-    # (Блок калькулятора залишається без змін)
     PRICE_TICKERS = {
         "XAUUSD": "GC=F", "XAGUSD": "SI=F", "XCUUSD": "HG=F",
         "EURUSD": "EURUSD=X", "US100": "NQ=F", "GER40": "YM=F",
@@ -102,13 +96,13 @@ with tab1:
     
     col1, col2 = st.columns(2)
     with col1:
-        balance = st.number_input("Баланс ($)", value=100000.0, step=1000.0, format="%.2f")
+        balance = st.number_input("Баланс ($)", value=100000.0, step=1000.0)
         risk_pct = 0.5 if three_losses else 1.0
         st.info(f"Ризик: **{risk_pct}%**")
         
     with col2:
-        asset = st.selectbox("Актив", list(FTMO_SPECS.keys()), key="calc_asset")
-        sl_points = st.number_input("Stop Loss (points)", value=100.0, step=1.0, format="%.1f")
+        asset = st.selectbox("Актив", list(FTMO_SPECS.keys()))
+        sl_points = st.number_input("Stop Loss (points)", value=100.0, step=1.0)
 
     current_price = get_price_safe(PRICE_TICKERS.get(asset))
     if current_price:
@@ -121,8 +115,8 @@ with tab1:
     
     conv_rate = 1.0
     if spec['curr'] != "USD":
-        val = get_price_safe(f"{spec['curr']}USD=X")
-        conv_rate = val if val else 1.0
+        val_conv = get_price_safe(f"{spec['curr']}USD=X")
+        conv_rate = val_conv if val_conv else 1.0
 
     raw_lot = risk_usd / (sl_points * one_point_val * conv_rate)
     final_lot = max(round(raw_lot, 2), 0.01)
@@ -133,7 +127,6 @@ with tab1:
 with tab2:
     st.header("📈 Macro Intelligence Hub")
     
-    # 1. ТЕХНІЧНИЙ ГРАФІК
     TV_TICKERS = {
         "DXY (Index)": "CAPITALCOM:DXY",
         "XAUUSD (Gold)": "OANDA:XAUUSD",
@@ -141,7 +134,7 @@ with tab2:
         "US100 (Nasdaq)": "CAPITALCOM:US100",
         "EURUSD": "OANDA:EURUSD"
     }
-    selected_asset = st.selectbox("Інструмент для аналізу:", list(TV_TICKERS.keys()), key="tv_select")
+    selected_asset = st.selectbox("Інструмент для аналізу:", list(TV_TICKERS.keys()))
     
     tv_widget = f"""
     <div style="height: 500px;">
@@ -159,35 +152,30 @@ with tab2:
     st.components.v1.html(tv_widget, height=500)
 
     st.divider()
-
-    # 2. SENTINEL AI
     st.subheader("🤖 Sentinel AI: Аналіз")
     ca1, ca2 = st.columns(2)
     with ca1:
         st.info("🎯 **Сценарій XAUUSD:** Слідкуй за DXY. CPI > прогноз = Gold 📉.")
     with ca2:
-        st.warning("🏮 **Сценарій JP225:** USDJPY вгору = Nikkei 🚀. Слабкість єни — твій союзник.")
+        st.warning("🏮 **Сценарій JP225:** USDJPY вгору = Nikkei 🚀. Слабкість єни — союзник.")
 
     st.divider()
-
-    # 3. SENTINEL MACRO ENGINE (Власна таблиця)
-    st.subheader("📡 Sentinel Macro Stream (Auto-Filtered)")
-    st.write("Автоматичний моніторинг новин по **USD, JPY, EUR, GBP**.")
+    st.subheader("📡 Sentinel Macro Stream (Verified)")
     
-    macro_df = get_sentinel_macro()
+    macro_df = get_sentinel_macro_stable()
     
-    if not macro_df.empty and "Статус" not in macro_df.columns:
-        # Відображення нативної таблиці Streamlit (Dark Mode)
+    if not macro_df.empty:
         st.dataframe(
             macro_df, 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "Вплив": st.column_config.TextColumn("Важливість", width="small"),
-                "Час": st.column_config.TextColumn("Час (EET)", width="small")
+                "Вплив": st.column_config.TextColumn("Impact", width="small"),
+                "Дата": st.column_config.TextColumn("Date", width="small"),
+                "Час": st.column_config.TextColumn("Time", width="small"),
             }
         )
     else:
-        st.info("🔄 Дані оновлюються або тимчасово недоступні. Перевірте з'єднання.")
+        st.error("🔌 Помилка зв'язку з сервером новин.")
 
-    st.caption("💡 Дані автоматично фільтруються для ваших пріоритетних активів.")
+    st.caption("✅ Джерело: JSON Stream. Фільтр: USD, JPY, EUR, GBP.")
