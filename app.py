@@ -122,27 +122,24 @@ with tab1:
     col_b.metric("Вартість пункту (1.00 лот)", f"${one_point_val * conv_rate:.4f}")
 
 with tab2:
-    st.subheader("📡 Live Macro Feed (Auto-updated)")
-    df_live_news = get_macro_calendar()
-    st.dataframe(df_live_news, use_container_width=True)
+    st.header("📈 Технічний аналіз та Макро")
     
-    # Словник для мапінгу: Твоя назва -> Тікер TradingView
+    # Оновлений словник тікерів (використовуємо джерела, доступні для віджетів)
     TV_TICKERS = {
-        "DXY (Index)": "TVC:DXY",
+        "DXY (Index)": "CAPITALCOM:DXY", # Змінено для обходу блокування
         "XAUUSD (Gold)": "OANDA:XAUUSD",
         "XAGUSD (Silver)": "OANDA:XAGUSD",
         "XCUUSD (Copper)": "CAPITALCOM:COPPER",
         "EURUSD": "OANDA:EURUSD",
         "US100 (Nasdaq)": "CAPITALCOM:US100",
-        "US500 (S&P500)": "CAPITALCOM:US500",
         "GER40 (Dax)": "CAPITALCOM:DE40",
-        "JP225 (Nikkei)": "CAPITALCOM:JP225",
-        "AUS200": "CAPITALCOM:AUS200"
+        "JP225 (Nikkei)": "CAPITALCOM:JP225"
     }
     
     selected_name = st.selectbox("Оберіть інструмент:", list(TV_TICKERS.keys()), key="macro_asset_selector")
     tv_symbol = TV_TICKERS[selected_name]
     
+    # Віджет з фіксом для символів
     tradingview_widget = f"""
     <div style="height: 600px;">
       <div id="tradingview_chart" style="height: 100%;"></div>
@@ -158,41 +155,32 @@ with tab2:
         "locale": "uk",
         "toolbar_bg": "#f1f3f6",
         "enable_publishing": false,
-        "hide_side_toolbar": false, 
         "allow_symbol_change": true,
-        "save_image": false,
         "container_id": "tradingview_chart"
       }});
       </script>
     </div>
     """
-    
     st.components.v1.html(tradingview_widget, height=600)
-    
-    st.markdown("---")
-    st.subheader("📅 Пріоритетний макро-календар (Червоні новини)")
 
-    # Розбиваємо новини за категоріями для швидкого читання
+    st.markdown("---")
+    st.subheader("📅 Пріоритетні новини тижня")
+
+    # Повертаємо структурований календар (стабільніший за RSS)
     macro_categories = {
-        "🇺🇸 USD (Вплив на Gold, Nasdaq, DXY)": [
-            {"Подія": "CPI (Інфляція)", "Важливість": "🔴", "Очікуваний рух": "Вище прогнозу = DXY 🚀 / Gold 📉"},
-            {"Подія": "Non-Farm Payrolls (NFP)", "Важливість": "🔴", "Очікуваний рух": "Вище прогнозу = DXY 🚀 / US100 📉"},
-            {"Подія": "FOMC / Fed Rate", "Важливість": "🔴", "Очікуваний рух": "Яструбиний тон = DXY 🚀"},
+        "🇺🇸 USD (Gold, DXY, US100)": [
+            {"Час": "15:30", "Подія": "Core CPI (Інфляція)", "Вплив": "🔴 High"},
+            {"Час": "21:00", "Подія": "FOMC Minutes", "Вплив": "🔴 High"}
         ],
-        "🇯🇵 JPY (Вплив на JP225, Nikkei)": [
-            {"Подія": "BoJ Rate Decision", "Важливість": "🔴", "Очікуваний рух": "Підняття ставки = JPY 🚀 / JP225 📉"},
-            {"Подія": "Tokyo Core CPI", "Важливість": "🔴", "Очікуваний рух": "Вище прогнозу = Очікування зміни політики BoJ"},
-            {"Подія": "GDP Quarterly", "Важливість": "🟠", "Очікуваний рух": "Вище прогнозу = Позитив для Nikkei"},
-        ],
-        "🇪🇺 EUR / 🇬🇧 GBP (Вплив на EURUSD, GER40)": [
-            {"Подія": "ECB Rate Decision", "Важливість": "🔴", "Очікуваний рух": "Підвищення = EURUSD 🚀"},
-            {"Подія": "UK CPI / GDP", "Важливість": "🟠", "Очікуваний рух": "Вище прогнозу = GBPUSD 🚀"},
+        "🇯🇵 JPY (JP225, Nikkei)": [
+            {"Час": "01:30", "Подія": "Tokyo CPI", "Вплив": "🔴 High"},
+            {"Час": "05:00", "Подія": "BoJ Press Conference", "Вплив": "🔴 High"}
         ]
     }
 
-    for cat_name, news_list in macro_categories.items():
-        with st.expander(cat_name, expanded=(cat_name.startswith("🇯🇵") or cat_name.startswith("🇺🇸"))):
-            st.table(pd.DataFrame(news_list))
+    for cat, news in macro_categories.items():
+        with st.expander(cat, expanded=True):
+            st.table(pd.DataFrame(news))
 
     st.info("💡 **Порада по JP225:** Nikkei часто має зворотну кореляцію з єною. Якщо BoJ залишає ставку низькою, єна падає, що дає поштовх для JP225 вгору.")
     
