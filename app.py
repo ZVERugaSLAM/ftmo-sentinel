@@ -62,14 +62,14 @@ with tab1:
     st.success(f"### Рекомендований лот: **{final_lot}**")
     st.write(f"💵 Ризик у грошах: **${risk_usd:.2f}**")
 
-with tab2:
+ith tab2:
     st.header("📈 Технічний аналіз (TradingView)")
     
-    # Вибір інструменту для аналізу
+    # Вибір інструменту
     tv_symbol = st.selectbox("Оберіть інструмент:", 
-                            ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40", "OANDA:XAGUSD"])
+                            ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40"],
+                            key="macro_asset_selector") # Додано унікальний ключ
     
-    # HTML-код професійного віджета
     tradingview_widget = f"""
     <div class="tradingview-widget-container" style="height: 600px;">
       <div id="tradingview_chart" style="height: 100%;"></div>
@@ -87,9 +87,6 @@ with tab2:
         "enable_publishing": false,
         "hide_side_toolbar": false, 
         "allow_symbol_change": true,
-        "details": true,
-        "hotlist": true,
-        "calendar": true,
         "container_id": "tradingview_chart"
       }});
       </script>
@@ -97,7 +94,7 @@ with tab2:
     """
     
     # Виклик компонента
-    components.html(tradingview_widget, height=600)
+    components.html(tradingview_widget, height=600, key=f"tv_chart_{tv_symbol}")
     
     st.markdown("---")
     st.subheader("📅 Macro Calendar")
