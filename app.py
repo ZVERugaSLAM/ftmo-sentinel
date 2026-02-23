@@ -1,6 +1,7 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
+import streamlit.components.v1 as components # Використовуємо стандартний компонент
 from datetime import datetime
 
 # --- КОНФІГУРАЦІЯ ---
@@ -61,39 +62,48 @@ with tab1:
     st.success(f"### Рекомендований лот: **{final_lot}**")
     st.write(f"💵 Ризик у грошах: **${risk_usd:.2f}**")
 
-import streamlit.components.v1 as components
-
 with tab2:
-    st.header("📈 Advanced Market Analysis")
+    st.header("📈 Технічний аналіз (TradingView)")
     
-    # Вибір активу для графіка
+    # Вибір інструменту для аналізу
     tv_symbol = st.selectbox("Оберіть інструмент:", 
-                            ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40"])
+                            ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40", "OANDA:XAGUSD"])
     
-    # HTML/JS код віджета TradingView
+    # HTML-код професійного віджета
     tradingview_widget = f"""
-    <div id="tradingview_chart" style="height: 600px;"></div>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="text/javascript">
-    new TradingView.widget({{
-      "autosize": true,
-      "symbol": "{tv_symbol}",
-      "interval": "15",
-      "timezone": "Europe/Kyiv",
-      "theme": "dark",
-      "style": "1",
-      "locale": "uk",
-      "toolbar_bg": "#f1f3f6",
-      "enable_publishing": false,
-      "allow_symbol_change": true,
-      "container_id": "tradingview_chart"
-    }});
-    </script>
+    <div class="tradingview-widget-container" style="height: 600px;">
+      <div id="tradingview_chart" style="height: 100%;"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+      <script type="text/javascript">
+      new TradingView.widget({{
+        "autosize": true,
+        "symbol": "{tv_symbol}",
+        "interval": "15",
+        "timezone": "Europe/Kyiv",
+        "theme": "dark",
+        "style": "1",
+        "locale": "uk",
+        "toolbar_bg": "#f1f3f6",
+        "enable_publishing": false,
+        "hide_side_toolbar": false, 
+        "allow_symbol_change": true,
+        "details": true,
+        "hotlist": true,
+        "calendar": true,
+        "container_id": "tradingview_chart"
+      }});
+      </script>
+    </div>
     """
     
-    # Відображення графіка
+    # Виклик компонента
     components.html(tradingview_widget, height=600)
     
     st.markdown("---")
     st.subheader("📅 Macro Calendar")
-    # Тут лишається твій календар...
+    # Тут лишаємо твою таблицю новин, яку ми створили раніше
+    events = [
+        {"Час (EET)": "15:30", "Подія": "Core CPI m/m", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "0.3%", "Попереднє": "0.2%"},
+        {"Час (EET)": "21:00", "Подія": "FOMC Meeting Minutes", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "-", "Попереднє": "-"}
+    ]
+    st.table(pd.DataFrame(events))

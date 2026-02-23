@@ -4,4 +4,3 @@ pandas
 google-generativeai
 pandas_datareader
 plotly
-streamlit-components-tech
