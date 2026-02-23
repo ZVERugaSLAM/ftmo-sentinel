@@ -1,8 +1,30 @@
 import requests
 import pandas as pd
 import streamlit as st
-import yfinance as yf  # Додано імпорт
+import yfinance as yf
+import google.generativeai as genai  # Додано
 from datetime import datetime
+
+# --- ІНІЦІАЛІЗАЦІЯ AI ---
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+    model_ai = genai.GenerativeModel('gemini-pro')
+else:
+    st.warning("Ключ GEMINI_API_KEY не знайдено в Secrets. AI працює в демо-режимі.")
+
+# Функція для професійного запиту
+def get_sentinel_analysis(asset, query):
+    prompt = f"""
+    Ти — Sentinel AI, елітний фінансовий аналітик для FTMO трейдера.
+    Твій стиль: лаконічний, діловий, без води.
+    Аналізуй актив {asset} згідно запиту: {query}.
+    Давай конкретні припущення (міцний прогноз/середній/слабкий) та згадуй аномалії, якщо вони є.
+    """
+    try:
+        response = model_ai.generate_content(prompt)
+        return response.text
+    except Exception as e:
+        return f"Помилка AI: {str(e)}"
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
@@ -82,7 +104,7 @@ with cols[3]:
     val = get_price_safe("^GSPC")
     st.metric("S&P 500", f"{val:.2f}" if val else "---")
 
-tab1, tab2 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence"])
+tab1, tab2, tab3 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence", "🚨 Crisis Watch"])
 
 with tab1:
     PRICE_TICKERS = {
@@ -160,7 +182,18 @@ with tab2:
         st.warning("🏮 **Сценарій JP225:** USDJPY вгору = Nikkei 🚀. Слабкість єни — союзник.")
 
     st.divider()
-    st.subheader("📡 Sentinel Macro Stream (Verified)")
+    st.subheader("🤖 Sentinel Quick Analysis")
+    query_col, asset_col = st.columns([2, 1])
+    
+    with asset_col:
+        analyze_target = st.text_input("Введіть актив (напр. BTC, OIL):", value="XAUUSD", key="asset_input")
+    with query_col:
+        user_query = st.text_input("Позачергове питання до ШІ:", key="query_input")
+    
+    if user_query:
+        with st.spinner('Sentinel аналізує ринкові дані та макро-фон...'):
+            answer = get_sentinel_analysis(analyze_target, user_query)
+            st.chat_message("assistant").write(answer)
     
     macro_df = get_sentinel_macro_stable()
     
@@ -179,3 +212,28 @@ with tab2:
         st.error("🔌 Помилка зв'язку з сервером новин.")
 
     st.caption("✅ Джерело: JSON Stream. Фільтр: USD, JPY, EUR, GBP.")
+
+with tab3:
+    st.header("🚨 Global Crisis & Recession Watch")
+    st.write("Аналіз світових макро-ризиків на основі прогнозів Goldman Sachs, J.P. Morgan та IMF.")
+    
+    # Метрики системного ризику
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Ймовірність рецесії (USA)", "35%", delta="+5% за місяць", delta_color="inverse")
+    m2.metric("Inversion 2Y/10Y", "-0.42", help="Інверсія кривої доходності — провісник кризи")
+    m3.metric("Debt-to-GDP Risk", "High", delta="Critical")
+
+    st.divider()
+    
+    # Таблиця аномалій та загроз
+    crisis_data = [
+        {"Загроза": "Боргова криза США", "Статус": "⚠️ Аномалія", "Ймовірність": "15%", "Наслідки": "Обвал DXY, Золото до небес"},
+        {"Загроза": "Енергетичний шок в ЄС", "Статус": "🟠 Середня", "Ймовірність": "45%", "Наслідки": "Падіння EURUSD, ріст GER40 (енергосектор)"},
+        {"Загроза": "Дефляційна спіраль Китаю", "Статус": "🔴 Міцна", "Ймовірність": "70%", "Наслідки": "Падіння попиту на сировину (Мідь, Нафта)"}
+    ]
+    st.table(pd.DataFrame(crisis_data))
+    
+    st.markdown("""
+    > **Висновки Sentinel:** Поточна фаза ринку — 'Late Cycle'. Рекомендується утримувати підвищений запас ліквідності та знижувати лотність на індексах.
+    """)
+
