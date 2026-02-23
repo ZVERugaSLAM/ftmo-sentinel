@@ -18,8 +18,8 @@ def get_sentinel_analysis(asset, query):
     Стиль: лаконічний, професійний, без води. 
     """
     
-    # Створюємо масив з назвами моделей, від найновішої до старішої
     models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+    error_logs = []
     
     for model_name in models_to_try:
         try:
@@ -27,11 +27,16 @@ def get_sentinel_analysis(asset, query):
             response = model.generate_content(prompt)
             return response.text
         except Exception as e:
-            # Якщо модель видала помилку (напр. 404), ідемо до наступної в списку
+            # Фіксуємо точну помилку API для поточної моделі
+            error_logs.append(f"[{model_name}]: {str(e)}")
             continue
             
-    # Якщо ЖОДНА модель не спрацювала, виводимо прохання оновити requirements
-    return "❌ Помилка AI: Не вдалося знайти сумісну версію моделі. Перевірте, чи оновлено google-generativeai>=0.7.2 у requirements.txt."
+    # Формуємо детальний звіт про помилки, якщо жодна модель не спрацювала
+    detailed_error = "❌ **Критична помилка API Google:**\n\n"
+    for err in error_logs:
+        detailed_error += f"- {err}\n"
+        
+    return detailed_error
 
 # --- КОНФІГУРАЦІЯ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
