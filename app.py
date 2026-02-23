@@ -61,35 +61,39 @@ with tab1:
     st.success(f"### Рекомендований лот: **{final_lot}**")
     st.write(f"💵 Ризик у грошах: **${risk_usd:.2f}**")
 
+import streamlit.components.v1 as components
+
 with tab2:
-    st.header("🔴 High-Impact Macro Monitor")
+    st.header("📈 Advanced Market Analysis")
     
-    # Вибір інструменту для макро-аналізу
-    macro_asset = st.selectbox("Аналізувати тренд:", ["DX-Y.NYB", "^VIX", "GC=F"])
+    # Вибір активу для графіка
+    tv_symbol = st.selectbox("Оберіть інструмент:", 
+                            ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40"])
     
-    # Отримання історичних даних для графіка
-    hist_data = yf.download(macro_asset, period="5d", interval="15m")
+    # HTML/JS код віджета TradingView
+    tradingview_widget = f"""
+    <div id="tradingview_chart" style="height: 600px;"></div>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script type="text/javascript">
+    new TradingView.widget({{
+      "autosize": true,
+      "symbol": "{tv_symbol}",
+      "interval": "15",
+      "timezone": "Europe/Kyiv",
+      "theme": "dark",
+      "style": "1",
+      "locale": "uk",
+      "toolbar_bg": "#f1f3f6",
+      "enable_publishing": false,
+      "allow_symbol_change": true,
+      "container_id": "tradingview_chart"
+    }});
+    </script>
+    """
     
-    if not hist_data.empty:
-        st.subheader(f"Графік {macro_asset} (15хв таймфрейм)")
-        st.line_chart(hist_data['Close'])
+    # Відображення графіка
+    components.html(tradingview_widget, height=600)
     
     st.markdown("---")
-    st.subheader("📅 Найближчі ключові події (Focus List)")
-    
-    # Створюємо інтерактивну таблицю з фокусом на твої інтереси
-    events = [
-        {"Час (EET)": "15:30", "Подія": "Core CPI m/m", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "0.3%", "Попереднє": "0.2%"},
-        {"Час (EET)": "15:30", "Подія": "Unemployment Claims", "Важливість": "🟠 Medium", "Валюта": "USD", "Прогноз": "215K", "Попереднє": "212K"},
-        {"Час (EET)": "21:00", "Подія": "FOMC Meeting Minutes", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "-", "Попереднє": "-"}
-    ]
-    df_events = pd.DataFrame(events)
-    
-    # Підсвічуємо червоні новини
-    def highlight_high(val):
-        color = 'red' if val == '🔴 High' else 'orange' if val == '🟠 Medium' else 'white'
-        return f'color: {color}'
-
-    st.table(df_events.style.applymap(highlight_high, subset=['Важливість']))
-
-    st.info("💡 ПОРАДА: Якщо CPI вийде вище прогнозу (напр. 0.5%), це зазвичай штовхає DXY вгору 📈 та Золото вниз 📉.")
+    st.subheader("📅 Macro Calendar")
+    # Тут лишається твій календар...
