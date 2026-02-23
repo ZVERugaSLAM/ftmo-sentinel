@@ -1,11 +1,10 @@
-streamlit
-yfinance
+beautifulsoup4
+feedparser
+google-generativeai>=0.7.2
 pandas
-google-generativeai
 pandas_datareader
 plotly
-streamlit-autorefresh
-feedparser
 requests
-beautifulsoup4
-google-generativeai>=0.7.2
+streamlit
+streamlit-autorefresh
+yfinance
