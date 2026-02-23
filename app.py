@@ -1,7 +1,6 @@
 import streamlit as st
 import yfinance as yf
 import pandas as pd
-import streamlit.components.v1 as html_components # ЗМІНЕНО ТУТ
 from datetime import datetime
 
 # --- КОНФІГУРАЦІЯ ---
@@ -63,15 +62,15 @@ with tab1:
     st.write(f"💵 Ризик у грошах: **${risk_usd:.2f}**")
 
 with tab2:
-    st.header("📈 Технічний аналіз (TradingView)")
+    st.header("📈 Технічний аналіз та Макро")
     
-    # Вибір інструменту
+    # 1. Графік TradingView
     tv_symbol = st.selectbox("Оберіть інструмент:", 
                             ["FX_IDC:DXY", "OANDA:XAUUSD", "OANDA:EURUSD", "CAPITALCOM:US100", "CAPITALCOM:DE40"],
                             key="macro_asset_selector")
     
     tradingview_widget = f"""
-    <div class="tradingview-widget-container" style="height: 600px;">
+    <div style="height: 600px;">
       <div id="tradingview_chart" style="height: 100%;"></div>
       <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
       <script type="text/javascript">
@@ -93,13 +92,21 @@ with tab2:
     </div>
     """
     
-    # Виклик компонента
-    html_components.html(tradingview_widget, height=600, key=f"tv_chart_{tv_symbol}") # ЗМІНЕНО ТУТ
+    # Виклик графіка через нативний метод
+    st.components.v1.html(tradingview_widget, height=600)
     
     st.markdown("---")
-    st.subheader("📅 Macro Calendar")
+    
+    # 2. Твій Макро-календар
+    st.subheader("📅 Календар ключових подій (EET)")
+    
+    # Створюємо актуальну таблицю (можна редагувати ці дані вручну)
     events = [
-        {"Час (EET)": "15:30", "Подія": "Core CPI m/m", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "0.3%", "Попереднє": "0.2%"},
-        {"Час (EET)": "21:00", "Подія": "FOMC Meeting Minutes", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "-", "Попереднє": "-"}
+        {"Час": "15:30", "Подія": "Core CPI m/m (Inflation)", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "0.3%", "Факт": "?"},
+        {"Час": "15:30", "Подія": "Retail Sales m/m", "Важливість": "🟠 Medium", "Валюта": "USD", "Прогноз": "0.1%", "Факт": "?"},
+        {"Час": "21:00", "Подія": "FOMC Meeting Minutes", "Важливість": "🔴 High", "Валюта": "USD", "Прогноз": "-", "Факт": "-"}
     ]
+    
     st.table(pd.DataFrame(events))
+    
+    st.info("💡 **Порада:** Під час виходу новин '🔴 High' зазвичай спостерігається розширення спреду та проковзування (slippage). Будь обережний з виставленням стоп-ордерів безпосередньо в момент публікації.")
