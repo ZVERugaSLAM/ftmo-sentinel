@@ -293,7 +293,7 @@ with tab3:
                 
                 try:
                     crisis_model = genai.GenerativeModel(
-                        model_name="gemini-3-pro-preview",
+                        model_name="gemini-3-flash",
                         generation_config=crisis_generation_config
                     )
                     
