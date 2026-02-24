@@ -37,15 +37,17 @@ FTMO_SPECS = {
     "XCUUSD": {"contract": 100, "tick": 0.01, "val": 1.00, "curr": "USD"},
     "EURUSD": {"contract": 100000, "tick": 0.00001, "val": 1.00, "curr": "USD"},
     "US100":  {"contract": 1, "tick": 0.01, "val": 0.01, "curr": "USD"},
+    "US500":  {"contract": 1, "tick": 0.01, "val": 0.01, "curr": "USD"},
     "GER40":  {"contract": 1, "tick": 0.01, "val": 0.01, "curr": "EUR"},
+    "AUS200": {"contract": 1, "tick": 1.0, "val": 1.00, "curr": "AUD"}, # Валідуй тік в MT5
     "DXY":    {"contract": 100, "tick": 0.001, "val": 0.10, "curr": "USD"},
-    "JP225":  {"contract": 10, "tick": 0.01, "val": 0.10, "curr": "JPY"}
+    "JP225":  {"contract": 10, "tick": 1.0, "val": 10.0, "curr": "JPY"}
 }
 
 PRICE_TICKERS = {
     "XAUUSD": "GC=F", "XAGUSD": "SI=F", "XCUUSD": "HG=F",
-    "EURUSD": "EURUSD=X", "US100": "NQ=F", "GER40": "YM=F",
-    "DXY": "DX-Y.NYB", "JP225": "NK=F"
+    "EURUSD": "EURUSD=X", "US100": "NQ=F", "US500": "ES=F",
+    "GER40": "^GDAXI", "AUS200": "^AXJO", "DXY": "DX-Y.NYB", "JP225": "^N225"
 }
 
 # --- ФУНКЦІЇ ОТРИМАННЯ ДАНИХ ---
@@ -126,6 +128,8 @@ with tab1:
             step_val = float(10**(-prec))
             
             current_price = get_price_safe(PRICE_TICKERS.get(asset))
+            if current_price and asset == "XCUUSD":
+                current_price *= 100 # Приведення біржової ціни міді до формату FTMO
             
             # ІЗОЛЯЦІЯ СТАНУ: Фіксуємо базову ціну, щоб оновлення котирувань не збивало ручний ввід
             if "active_asset" not in st.session_state or st.session_state.active_asset != asset:
@@ -168,10 +172,18 @@ with tab2:
     
     @st.fragment
     def render_tv():
+        # Точні джерела котирувань згідно з MT5
         TV_TICKERS = {
-            "DXY (Index)": "CAPITALCOM:DXY", "XAUUSD (Gold)": "OANDA:XAUUSD",
-            "JP225 (Nikkei)": "CAPITALCOM:JP225", "US100 (Nasdaq)": "CAPITALCOM:US100",
-            "EURUSD": "OANDA:EURUSD"
+            "XAUUSD (Gold)": "OANDA:XAUUSD",
+            "XAGUSD (Silver)": "FXOPEN:XAGUSD",
+            "XCUUSD (Copper)": "ACTIVTRADES:COPPERH2026",
+            "EURUSD": "TICKMILL:EURUSD",
+            "US100 (Nasdaq)": "CFI:US100",
+            "US500 (S&P 500)": "CAPITALCOM:US500", 
+            "GER40 (DAX)": "FPMARKETS:GER40",
+            "AUS200": "TVC:AUS200",               
+            "DXY (US Dollar)": "TVC:DXY",
+            "JP225 (Nikkei)": "ICMARKETS:JP225"
         }
         selected_asset = st.selectbox("Інструмент для аналізу:", list(TV_TICKERS.keys()), key="tv_select")
         
@@ -228,18 +240,29 @@ with tab3:
         st.header("🚨 Crisis Watch & Liquidity (Big Five)")
         
         row1_1, row1_2, row1_3 = st.columns(3)
-        with row1_1: st.metric("10Y-2Y Yield Spread", "+0.60%", delta="Un-inversion", delta_color="inverse")
-        with row1_2: st.metric("US Reverse Repo", "$0.5B", delta="Critical Drain", delta_color="inverse")
-        with row1_3: st.metric("US High Yield Spread", "2.86%", delta="Low Risk", delta_color="normal")
+        with row1_1: 
+            st.metric("10Y-2Y Yield Spread", "+0.60%", delta="Un-inversion", delta_color="inverse", 
+                      help="Різниця дохідності 10-річних та 2-річних держоблігацій США. Перехід від інверсії (від'ємних значень) до нормальної кривої часто безпосередньо передує початку рецесії.")
+        with row1_2: 
+            st.metric("US Reverse Repo (RRP)", "$0.5B", delta="Critical Drain", delta_color="inverse", 
+                      help="Об'єм надлишкової ліквідності банків, припаркованої у ФРС. Наближення до нуля сигналізує про ризик гострого дефіциту готівки у фінансовій системі.")
+        with row1_3: 
+            st.metric("US High Yield Spread", "2.86%", delta="Low Risk", delta_color="normal", 
+                      help="Премія за ризик по корпоративних облігаціях з низьким рейтингом (junk bonds). Різке зростання означає паніку кредиторів та відтік капіталу в захисні активи.")
 
         row2_1, row2_2, row2_3 = st.columns(3)
-        with row2_1: st.metric("Sahm Rule Indicator", "0.30%", delta="Rising", delta_color="inverse")
-        with row2_2: st.metric("Job Search Trends", "+12%", delta="High Risk", delta_color="inverse")
-        with row2_3: st.metric("VIX (Fear Index)", "21.60", delta="Elevated", delta_color="inverse")
+        with row2_1: 
+            st.metric("Sahm Rule Indicator", "0.30%", delta="Rising", delta_color="inverse", 
+                      help="Макроекономічний індикатор початку рецесії. Спрацьовує, коли середнє безробіття за 3 місяці перевищує мінімум за останні 12 місяців на 0.50%.")
+        with row2_2: 
+            st.metric("Job Search 'Find a Job'", "+12%", delta="High Risk", delta_color="inverse", 
+                      help="Динаміка пошукових запитів про пошук роботи. Надійний випереджаючий індикатор слабкості ринку праці та падіння споживчого попиту.")
+        with row2_3: 
+            st.metric("VIX (Fear Index)", "21.60", delta="Elevated", delta_color="inverse", 
+                      help="Індекс очікуваної волатильності S&P 500 (індекс страху). Значення вище 20 вказують на підвищену нервозність ринку, вище 30 — на паніку.")
 
         st.divider()
         
-        # ВІДНОВЛЕНА ТАБЛИЦЯ АНОМАЛІЙ
         st.subheader("⚠️ Карта системних аномалій")
         anomaly_df = pd.DataFrame([
             {"Індикатор": "10Y-2Y Spread", "Рівень": "+0.60%", "Статус": "🔴 Де-інверсія", "Наслідок": "Сигнал рецесії"},
