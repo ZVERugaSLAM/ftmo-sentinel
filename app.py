@@ -122,15 +122,18 @@ with tab1:
         with col2:
             asset = st.selectbox("Актив", list(FTMO_SPECS.keys()))
             
-            # Динамічна точність для відображення цін
             prec = 5 if asset == "EURUSD" else (3 if asset in ["XAGUSD", "DXY"] else 2)
             step_val = float(10**(-prec))
             
             current_price = get_price_safe(PRICE_TICKERS.get(asset))
-            default_price = float(current_price) if current_price else 0.0
+            
+            # ІЗОЛЯЦІЯ СТАНУ: Фіксуємо базову ціну, щоб оновлення котирувань не збивало ручний ввід
+            if "active_asset" not in st.session_state or st.session_state.active_asset != asset:
+                st.session_state.active_asset = asset
+                st.session_state.saved_price = float(current_price) if current_price else 0.0
 
-            entry_price = st.number_input("Entry Price (Ціна входу)", value=default_price, format=f"%.{prec}f", step=step_val)
-            sl_price = st.number_input("Stop Loss (Ціна)", value=default_price, format=f"%.{prec}f", step=step_val)
+            entry_price = st.number_input("Entry Price (Ціна входу)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
+            sl_price = st.number_input("Stop Loss (Ціна)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
 
         if current_price:
             st.markdown(f"### ⚡ Поточна ціна {asset}: `{current_price:.{prec}f}`")
@@ -140,7 +143,7 @@ with tab1:
         sl_points = abs_diff / spec['tick']
 
         risk_usd = balance * (global_risk_pct / 100)
-        one_point_val = spec['val'] # Виправлено математику. Без ділення на tick.
+        one_point_val = spec['val']
         
         conv_rate = 1.0
         if spec['curr'] != "USD":
@@ -233,6 +236,19 @@ with tab3:
         with row2_1: st.metric("Sahm Rule Indicator", "0.30%", delta="Rising", delta_color="inverse")
         with row2_2: st.metric("Job Search Trends", "+12%", delta="High Risk", delta_color="inverse")
         with row2_3: st.metric("VIX (Fear Index)", "21.60", delta="Elevated", delta_color="inverse")
+
+        st.divider()
+        
+        # ВІДНОВЛЕНА ТАБЛИЦЯ АНОМАЛІЙ
+        st.subheader("⚠️ Карта системних аномалій")
+        anomaly_df = pd.DataFrame([
+            {"Індикатор": "10Y-2Y Spread", "Рівень": "+0.60%", "Статус": "🔴 Де-інверсія", "Наслідок": "Сигнал рецесії"},
+            {"Індикатор": "Reverse Repo", "Рівень": "$0.5B", "Статус": "⚠️ Виснажено", "Наслідок": "Ризик дефіциту ліквідності"},
+            {"Індикатор": "High Yield Spread", "Рівень": "2.86%", "Статус": "🟢 Стабільно", "Наслідок": "Відсутність паніки"},
+            {"Індикатор": "Sahm Rule", "Рівень": "0.30%", "Статус": "🟠 Увага", "Наслідок": "Слабкість ринку праці"},
+            {"Індикатор": "Job Search Trends", "Рівень": "+12%", "Статус": "🔴 Аномалія", "Наслідок": "Споживчий песимізм"}
+        ])
+        st.dataframe(anomaly_df, use_container_width=True, hide_index=True)
 
         st.divider()
         st.subheader("🧠 Sentinel Macro Assessment")
