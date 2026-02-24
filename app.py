@@ -227,7 +227,7 @@ with tab2:
     def render_news():
         macro_df = get_sentinel_macro_stable()
         if not macro_df.empty:
-            st.dataframe(macro_df, use_container_width=True, hide_index=True)
+            st.dataframe(macro_df, width="stretch", hide_index=True)
         else:
             st.error("🔌 Помилка зв'язку з сервером новин.")
             
@@ -293,7 +293,7 @@ with tab3:
                 
                 try:
                     crisis_model = genai.GenerativeModel(
-                        model_name="gemini-1.5-flash",
+                        model_name="gemini-2.5-flash",
                         generation_config=crisis_generation_config
                     )
                     
