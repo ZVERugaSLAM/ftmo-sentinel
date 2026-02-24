@@ -275,7 +275,7 @@ with tab3:
             {"Індикатор": "Sahm Rule", "Рівень": "0.30%", "Статус": "🟠 Увага", "Наслідок": "Слабкість ринку праці"},
             {"Індикатор": "Job Search Trends", "Рівень": "+12%", "Статус": "🔴 Аномалія", "Наслідок": "Споживчий песимізм"}
         ])
-        st.dataframe(anomaly_df, use_container_width=True, hide_index=True)
+        st.dataframe(anomaly_df, width="stretch", hide_index=True)
 
         st.divider()
         st.subheader("🧠 Sentinel Macro Assessment")
@@ -293,7 +293,7 @@ with tab3:
                 
                 try:
                     crisis_model = genai.GenerativeModel(
-                        model_name="gemini-3-flash",
+                        model_name="gemini-1.5-flash",
                         generation_config=crisis_generation_config
                     )
                     
