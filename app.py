@@ -215,21 +215,80 @@ with tab2:
     render_tv()
     st.divider()
 
+    @st.cache_data(ttl=1800)
+    def fetch_price_action(ticker_symbol):
+        try:
+            # Мапінг торгових інструментів MT5 на тікери Yahoo Finance
+            yf_map = {
+                "XAUUSD (Gold)": "OANDA:XAUUSD",
+                "XAGUSD (Silver)": "FXOPEN:XAGUSD",
+                "XCUUSD (Copper)": "ACTIVTRADES:COPPERH2026",
+                "EURUSD": "TICKMILL:EURUSD",
+                "US100 (Nasdaq)": "CFI:US100",
+                "US500 (S&P 500)": "CAPITALCOM:US500", 
+                "GER40 (DAX)": "FPMARKETS:GER40",
+                "AUS200": "TVC:AUS200",               
+                "DXY (US Dollar)": "TVC:DXY",
+                "JP225 (Nikkei)": "ICMARKETS:JP225"
+            }
+            actual_ticker = yf_map.get(ticker_symbol.upper(), ticker_symbol.upper())
+            
+            # Отримання свічкових даних за 14 днів
+            stock = yf.Ticker(actual_ticker)
+            df = stock.history(period="14d")
+            
+            if df.empty:
+                return "Дані відсутні. Перевірте правильність тікера."
+            
+            # Форматування для промпту
+            df = df[['Open', 'High', 'Low', 'Close']].round(2)
+            df.index = df.index.strftime('%Y-%m-%d')
+            return df.to_string()
+        except Exception as e:
+            logging.error(f"Помилка yfinance: {e}")
+            return "Помилка завантаження котирувань."
+
     @st.fragment
     def render_ai_chat():
-        st.subheader("🤖 Sentinel Quick Analysis")
+        st.subheader("🤖 Sentinel Price Action (14D)")
         query_col, asset_col = st.columns([2, 1])
         
         with asset_col:
-            analyze_target = st.text_input("Введіть актив (напр. BTC, OIL):", value="XAUUSD", key="asset_input")
+            analyze_target = st.selectbox("Актив:", ["XAUUSD", "XAGUSD", "XCUUSD", "EURUSD", "US100", "US500", "GER40", "AUS200", "DXY", "JP225"], index=0, key="asset_input")
         with query_col:
-            user_query = st.text_input("Позачергове питання до ШІ:", key="query_input")
+            user_query = st.text_input("Специфічний запит (залиш порожнім для загального звіту):", key="query_input")
         
-        if user_query:
-            with st.spinner('Аналіз ринкових даних...'):
-                answer = get_sentinel_analysis(analyze_target, user_query)
-                st.chat_message("assistant").write(answer)
-
+        if st.button("Провести аналіз Price Action", type="primary"):
+            with st.spinner(f'Завантаження свічкових даних {analyze_target} та синтез звіту...'):
+                ohlcv_text = fetch_price_action(analyze_target)
+                
+                pa_prompt = f"""
+                Виконай технічний аналіз Price Action для активу {analyze_target} за останні 14 торгових днів.
+                
+                Дані OHLCV (Open, High, Low, Close):
+                {ohlcv_text}
+                
+                Вимоги до аналізу:
+                1. Визнач домінуючий короткостроковий тренд.
+                2. Вкажи точні цінові рівні (POI, підтримка/опір), спираючись виключно на надані максимуми та мінімуми у масиві даних.
+                3. Визнач зони збору ліквідності (пробій екстремумів) або розворотні формації, якщо вони присутні у цифрах.
+                """
+                
+                if user_query:
+                    pa_prompt += f"\nВідповідай на цей специфічний запит трейдера з огляду на надані дані: {user_query}"
+                
+                pa_prompt += "\nФормат: Лаконічний, діловий. Жодних загальних фраз, абстрактних порад чи позитивного підкріплення. Використовуй жирний шрифт для виділення всіх цінових рівнів та дат."
+                
+                try:
+                    pa_model = genai.GenerativeModel(
+                        model_name="gemini-2.5-flash",
+                        generation_config={"temperature": 0.1, "max_output_tokens": 2048}
+                    )
+                    response = pa_model.generate_content(pa_prompt)
+                    st.chat_message("assistant").write(response.text)
+                except Exception as e:
+                    st.error(f"Помилка генерації звіту: {str(e)}")
+                    
     render_ai_chat()
     st.divider()
 
