@@ -142,15 +142,7 @@ with st.sidebar:
     """, height=100)
 
     st.divider()
-
-    # Секція ризику (Твій існуючий функціонал)
-    st.subheader("🛡️ Ризик-менеджмент")
-    three_losses = st.toggle("3 поспіль SL (Ризик 0.5%)")
-    global_risk_pct = 0.5 if three_losses else 1.0
-    st.caption(f"Поточний ліміт на угоду: **{global_risk_pct}%**")
-
-    st.divider()
-
+    
     # Макро-віджет "Сьогодні"
     st.subheader("📅 Макро сьогодні")
     calendar_mini = """
@@ -197,36 +189,37 @@ tab1, tab2, tab3 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence", "🚨 
 with tab1:
     @st.fragment
     def render_calculator():
-        # ПЕРШИЙ РЯД: Баланс та Вибір активу
         row1_col1, row1_col2 = st.columns(2, gap="medium")
         
         with row1_col1:
             balance = st.number_input("Баланс ($)", value=10000.0, step=1000.0)
-            st.info(f"Активний ризик: **{global_risk_pct}%**")
+            
+            # ІНТЕГРОВАНИЙ РИЗИК-МЕНЕДЖМЕНТ
+            # Створюємо невеликий контейнер для візуального групування
+            risk_container = st.container()
+            with risk_container:
+                three_losses = st.toggle("3 поспіль SL (Знизити ризик до 0.5%)", key="calc_risk_toggle")
+                global_risk_pct = 0.5 if three_losses else 1.0
+                st.info(f"Активний ризик: **{global_risk_pct}%**")
             
         with row1_col2:
             asset = st.selectbox("Символ / Інструмент", list(FTMO_SPECS.keys()))
             
-            # Логіка точності та кроку
+            # Логіка точності (залишається без змін)
             prec = 5 if asset == "EURUSD" else (3 if asset in ["XAGUSD", "DXY"] else 2)
             step_val = float(10**(-prec))
             
-            # Отримання ціни
             current_price = get_price_safe(PRICE_TICKERS.get(asset))
             if current_price and asset == "XCUUSD":
-                current_price *= 100 # Приведення міді до формату FTMO
+                current_price *= 100 
             
-            # ІЗОЛЯЦІЯ СТАНУ
             if "active_asset" not in st.session_state or st.session_state.active_asset != asset:
                 st.session_state.active_asset = asset
                 st.session_state.saved_price = float(current_price) if current_price else 0.0
 
-        # ДРУГИЙ РЯД: Ціна входу та Стоп-лосс
         row2_col1, row2_col2 = st.columns(2, gap="medium")
-        
         with row2_col1:
             entry_price = st.number_input("Entry Price (Ціна входу)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
-            
         with row2_col2:
             sl_price = st.number_input("Stop Loss (Ціна виходу)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
 
