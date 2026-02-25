@@ -144,35 +144,46 @@ with cols[3]:
 # --- ОСНОВНИЙ РОБОЧИЙ ПРОСТІР ---
 tab1, tab2, tab3 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence", "🚨 Crisis Watch"])
 
-# 1. КАЛЬКУЛЯТОР (Ізольований фрагмент)
+# 1. КАЛЬКУЛЯТОР (Ізольований фрагмент з редизайном 2x2)
 with tab1:
     @st.fragment
     def render_calculator():
-        col1, col2 = st.columns(2)
-        with col1:
+        # ПЕРШИЙ РЯД: Баланс та Вибір активу
+        row1_col1, row1_col2 = st.columns(2, gap="medium")
+        
+        with row1_col1:
             balance = st.number_input("Баланс ($)", value=10000.0, step=1000.0)
             st.info(f"Активний ризик: **{global_risk_pct}%**")
             
-        with col2:
-            asset = st.selectbox("Актив", list(FTMO_SPECS.keys()))
+        with row1_col2:
+            asset = st.selectbox("Символ / Інструмент", list(FTMO_SPECS.keys()))
             
+            # Логіка точності та кроку
             prec = 5 if asset == "EURUSD" else (3 if asset in ["XAGUSD", "DXY"] else 2)
             step_val = float(10**(-prec))
             
+            # Отримання ціни
             current_price = get_price_safe(PRICE_TICKERS.get(asset))
             if current_price and asset == "XCUUSD":
-                current_price *= 100 # Приведення біржової ціни міді до формату FTMO
+                current_price *= 100 # Приведення міді до формату FTMO
             
-            # ІЗОЛЯЦІЯ СТАНУ: Фіксуємо базову ціну, щоб оновлення котирувань не збивало ручний ввід
+            # ІЗОЛЯЦІЯ СТАНУ
             if "active_asset" not in st.session_state or st.session_state.active_asset != asset:
                 st.session_state.active_asset = asset
                 st.session_state.saved_price = float(current_price) if current_price else 0.0
 
+        # ДРУГИЙ РЯД: Ціна входу та Стоп-лосс
+        row2_col1, row2_col2 = st.columns(2, gap="medium")
+        
+        with row2_col1:
             entry_price = st.number_input("Entry Price (Ціна входу)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
-            sl_price = st.number_input("Stop Loss (Ціна)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
+            
+        with row2_col2:
+            sl_price = st.number_input("Stop Loss (Ціна виходу)", value=st.session_state.saved_price, format=f"%.{prec}f", step=step_val)
 
+        # Розрахункова частина
         if current_price:
-            st.markdown(f"### ⚡ Поточна ціна {asset}: `{current_price:.{prec}f}`")
+            st.markdown(f"#### ⚡ Поточна ціна {asset}: `{current_price:.{prec}f}`")
 
         spec = FTMO_SPECS[asset]
         abs_diff = abs(entry_price - sl_price)
@@ -192,6 +203,7 @@ with tab1:
         else:
             final_lot = 0.0
 
+        # Вивід результату (Візуальний акцент)
         st.divider()
         st.success(f"## Рекомендований лот: **{final_lot}**")
         st.caption(f"Дистанція: **{sl_points:.1f} пунктів** | Допустимий збиток: **${risk_usd:.2f}**")
