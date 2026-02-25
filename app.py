@@ -240,42 +240,54 @@ import logging
 import datetime
 
 
+import streamlit as st
+import pandas as pd
+import google.generativeai as genai
+import logging
+
 with tab3:
-    # Функція прямого парсингу даних з FRED з кешуванням на 1 годину (без pandas_datareader)
+    # Оновлена функція парсингу 4 індикаторів з FRED
     @st.cache_data(ttl=3600)
     def fetch_fred_macro():
         try:
-            # Пряме завантаження CSV з бази ФРС
-            spread_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y2Y"
-            rrp_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=RRPONTSYD"
+            urls = {
+                'spread': ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y2Y", 'T10Y2Y'),
+                'rrp': ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=RRPONTSYD", 'RRPONTSYD'),
+                'hy': ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=BAMLH0A0HYM2", 'BAMLH0A0HYM2'),
+                'sahm': ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=SAHMREALTIME", 'SAHMREALTIME'),
+                'vix': ("https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS", 'VIXCLS')
+            }
             
-            # Парсинг спреду (na_values='.' ігнорує вихідні дні, коли ФРС ставить крапку замість цифри)
-            df_spread = pd.read_csv(spread_url, index_col='DATE', parse_dates=True, na_values='.')
-            latest_spread = float(df_spread['T10Y2Y'].dropna().iloc[-1])
-            
-            # Парсинг RRP
-            df_rrp = pd.read_csv(rrp_url, index_col='DATE', parse_dates=True, na_values='.')
-            latest_rrp = float(df_rrp['RRPONTSYD'].dropna().iloc[-1])
-            
-            return latest_spread, latest_rrp
+            results = {}
+            for key, (url, col) in urls.items():
+                df = pd.read_csv(url, index_col='DATE', parse_dates=True, na_values='.')
+                results[key] = float(df[col].dropna().iloc[-1])
+                
+            return results['spread'], results['rrp'], results['hy'], results['sahm'], results['vix']
         except Exception as e:
-            logging.error(f"Помилка прямого підключення до FRED: {e}")
-            return None, None
+            logging.error(f"Помилка підключення до FRED: {e}")
+            return None, None, None, None, None
 
     @st.fragment
     def render_crisis():
         st.header("🚨 Crisis Watch & Liquidity (Big Five)")
         
-        # Отримання фактичних даних
-        spread_val, rrp_val = fetch_fred_macro()
+        # Отримання даних
+        spread_val, rrp_val, hy_val, sahm_val, vix_val = fetch_fred_macro()
         
-        # Запобіжник (Fallback) на випадок недоступності серверів FRED
+        # Запобіжники на випадок збою API
         actual_spread = spread_val if spread_val is not None else 0.60
         actual_rrp = rrp_val if rrp_val is not None else 500.0
+        actual_hy = hy_val if hy_val is not None else 2.86
+        actual_sahm = sahm_val if sahm_val is not None else 0.30
+        actual_vix = vix_val if vix_val is not None else 21.60
         
-        # Форматування для інтерфейсу та промпту
+        # Форматування
         spread_str = f"{actual_spread:+.2f}%"
         rrp_str = f"${actual_rrp:.2f}B"
+        hy_str = f"{actual_hy:.2f}%"
+        sahm_str = f"{actual_sahm:.2f}%"
+        vix_str = f"{actual_vix:.2f}"
         
         row1_1, row1_2, row1_3 = st.columns(3)
         with row1_1: 
@@ -285,18 +297,18 @@ with tab3:
             st.metric("US Reverse Repo (RRP)", rrp_str, delta="FRED Live", delta_color="off", 
                       help="Об'єм надлишкової ліквідності банків, припаркованої у ФРС. Наближення до нуля сигналізує про ризик гострого дефіциту готівки у фінансовій системі.")
         with row1_3: 
-            st.metric("US High Yield Spread", "2.86%", delta="Static", delta_color="off", 
+            st.metric("US High Yield Spread", hy_str, delta="FRED Live", delta_color="off", 
                       help="Премія за ризик по корпоративних облігаціях з низьким рейтингом (junk bonds). Різке зростання означає паніку кредиторів та відтік капіталу в захисні активи.")
 
         row2_1, row2_2, row2_3 = st.columns(3)
         with row2_1: 
-            st.metric("Sahm Rule Indicator", "0.30%", delta="Static", delta_color="off", 
+            st.metric("Sahm Rule Indicator", sahm_str, delta="FRED Live", delta_color="off", 
                       help="Макроекономічний індикатор початку рецесії. Спрацьовує, коли середнє безробіття за 3 місяці перевищує мінімум за останні 12 місяців на 0.50%.")
         with row2_2: 
             st.metric("Job Search 'Find a Job'", "+12%", delta="Static", delta_color="off", 
-                      help="Динаміка пошукових запитів про пошук роботи. Надійний випереджаючий індикатор слабкості ринку праці та падіння споживчого попиту.")
+                      help="Динаміка пошукових запитів про пошук роботи. Залишено статичним через блокування хмарних серверів з боку Google Trends.")
         with row2_3: 
-            st.metric("VIX (Fear Index)", "21.60", delta="Static", delta_color="off", 
+            st.metric("VIX (Fear Index)", vix_str, delta="FRED Live", delta_color="off", 
                       help="Індекс очікуваної волатильності S&P 500 (індекс страху). Значення вище 20 вказують на підвищену нервозність ринку, вище 30 — на паніку.")
 
         st.divider()
@@ -304,7 +316,6 @@ with tab3:
         
         if st.button("Згенерувати актуальний звіт 'Великої п'ятірки'", type="primary"):
             with st.spinner("Синтез даних системного ризику..."):
-                
                 crisis_generation_config = {
                     "temperature": 0.1, 
                     "top_p": 0.95,
@@ -318,15 +329,14 @@ with tab3:
                         generation_config=crisis_generation_config
                     )
                     
-                    # Промпт тепер використовує динамічні змінні з FRED
                     report_prompt = f"""
                     Сформуй глибокий макроекономічний аналіз системного ризику.
 
                     Вхідні дані (Велика п'ятірка):
                     1) Де-інверсія кривої дохідності (10Y-2Y): {spread_str}
                     2) Reverse Repo (RRP): {rrp_str}
-                    3) High Yield Spread: 2.86%
-                    4) Sahm Rule: 0.30%
+                    3) High Yield Spread: {hy_str}
+                    4) Sahm Rule: {sahm_str}
                     5) Job Search: +12%
                     
                     Вимоги до звіту:
