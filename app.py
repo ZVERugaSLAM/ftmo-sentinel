@@ -285,10 +285,27 @@ with tab2:
                 try:
                     pa_model = genai.GenerativeModel(
                         model_name="gemini-2.5-flash",
-                        generation_config={"temperature": 0.2, "max_output_tokens": 4096}
+                        generation_config={
+                            "temperature": 0.1, 
+                            "max_output_tokens": 8192
+                        }
                     )
-                    response = pa_model.generate_content(pa_prompt)
-                    st.markdown(response.text)
+                    
+                    # Відключення фільтрів безпеки для уникнення обривів при генерації фінансового аналізу
+                    safety_settings = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                    ]
+                    
+                    response = pa_model.generate_content(pa_prompt, safety_settings=safety_settings)
+                    
+                    if response.text:
+                        st.markdown(response.text)
+                    else:
+                        st.warning("Отримано порожню відповідь від моделі.")
+                        
                 except Exception as e:
                     st.error(f"Помилка генерації звіту: {str(e)}")
                     
