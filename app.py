@@ -218,18 +218,16 @@ with tab2:
     @st.cache_data(ttl=1800)
     def fetch_price_action(ticker_symbol):
         try:
-            # Мапінг торгових інструментів MT5 на тікери Yahoo Finance
+            # Мапінг торгових інструментів MT5 на тікери Yahoo Finance (використовуємо ф'ючерси для металів)
             yf_map = {
-                "XAUUSD (Gold)": "OANDA:XAUUSD",
-                "XAGUSD (Silver)": "FXOPEN:XAGUSD",
-                "XCUUSD (Copper)": "ACTIVTRADES:COPPERH2026",
-                "EURUSD": "TICKMILL:EURUSD",
-                "US100 (Nasdaq)": "CFI:US100",
-                "US500 (S&P 500)": "CAPITALCOM:US500", 
-                "GER40 (DAX)": "FPMARKETS:GER40",
-                "AUS200": "TVC:AUS200",               
-                "DXY (US Dollar)": "TVC:DXY",
-                "JP225 (Nikkei)": "ICMARKETS:JP225"
+                "XAUUSD": "GC=F",      # Ф'ючерс на золото (GC)
+                "XAGUSD": "SI=F",      # Ф'ючерс на срібло (SI)
+                "XCUUSD": "HG=F",      # Ф'ючерс на мідь (HG)
+                "EURUSD": "EURUSD=X",  # Спот EUR/USD
+                "US100": "NQ=F",       # Ф'ючерс Nasdaq 100
+                "GER40": "^GDAXI",     # Індекс DAX
+                "DXY": "DX-Y.NYB",     # Індекс Долара
+                "JP225": "^N225"       # Індекс Nikkei 225
             }
             actual_ticker = yf_map.get(ticker_symbol.upper(), ticker_symbol.upper())
             
