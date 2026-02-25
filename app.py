@@ -120,10 +120,59 @@ def get_sentinel_macro_stable():
     except:
         return pd.DataFrame()
 
-# --- ГЛОБАЛЬНА БІЧНА ПАНЕЛЬ (Поза вкладками) ---
-st.sidebar.header("🛡 Ризик-менеджмент")
-three_losses = st.sidebar.toggle("3 поспіль SL (Ризик 0.5%)")
-global_risk_pct = 0.5 if three_losses else 1.0
+# --- ГЛОБАЛЬНА БІЧНА ПАНЕЛЬ (Intelligence & Control Center) ---
+with st.sidebar:
+    st.markdown("### 🕒 Час терміналу (Kyiv/EET)")
+    
+    # Живий годинник на JavaScript
+    st.components.v1.html("""
+        <div style="background: #1c1f26; padding: 10px; border-radius: 8px; border: 1px solid #2d3139; text-align: center;">
+            <div id="clock" style="font-size: 1.8rem; font-weight: 700; color: #00bfa5; font-family: 'Courier New', monospace;">00:00:00</div>
+            <div style="color: #848e9c; font-size: 0.7rem; margin-top: 5px;">GMT+2 (Зимовий час)</div>
+        </div>
+        <script>
+            function updateClock() {
+                const now = new Date();
+                const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+                document.getElementById('clock').innerText = now.toLocaleTimeString('uk-UA', options);
+            }
+            setInterval(updateClock, 1000);
+            updateClock();
+        </script>
+    """, height=100)
+
+    st.divider()
+
+    # Секція ризику (Твій існуючий функціонал)
+    st.subheader("🛡️ Ризик-менеджмент")
+    three_losses = st.toggle("3 поспіль SL (Ризик 0.5%)")
+    global_risk_pct = 0.5 if three_losses else 1.0
+    st.caption(f"Поточний ліміт на угоду: **{global_risk_pct}%**")
+
+    st.divider()
+
+    # Макро-віджет "Сьогодні"
+    st.subheader("📅 Макро сьогодні")
+    calendar_mini = """
+    <div class="tradingview-widget-container">
+      <div class="tradingview-widget-container__widget"></div>
+      <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+      {
+      "colorTheme": "dark",
+      "isTransparent": true,
+      "width": "100%",
+      "height": "350",
+      "locale": "uk",
+      "importanceFilter": "0,1",
+      "currencyFilter": "USD,EUR,GBP"
+      }
+      </script>
+    </div>
+    """
+    st.components.v1.html(calendar_mini, height=350)
+    
+    if st.button("Весь календар →", use_container_width=True):
+        st.info("Використовуйте вкладку 'Macro Intelligence'")
 
 # --- ВЕРХНЯ ПАНЕЛЬ МЕТРИК ---
 st.title("🛰 FTMO Sentinel: Intelligence & Risk")
