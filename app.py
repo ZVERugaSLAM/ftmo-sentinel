@@ -8,6 +8,38 @@ from datetime import datetime
 # --- КОНФІГУРАЦІЯ СТОРІНКИ ---
 st.set_page_config(page_title="FTMO Sentinel PRO", layout="wide")
 
+# Ін'єкція кастомного CSS для стилізації інтерфейсу
+st.markdown("""
+    <style>
+    /* Приховування стандартного меню та футера Streamlit */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+
+    /* Оптимізація робочого простору (зменшення відступів) */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 1rem;
+        max-width: 95%;
+    }
+
+    /* Стилізація блоків цифрових метрик */
+    [data-testid="stMetric"] {
+        background-color: #1c1f26;
+        border: 1px solid #2d3139;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    /* Розмір основного шрифту всередині метрик */
+    [data-testid="stMetricValue"] {
+        font-size: 26px;
+        font-weight: 700;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # --- ІНІЦІАЛІЗАЦІЯ AI ---
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
