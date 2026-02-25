@@ -189,15 +189,25 @@ with tab2:
         
         tv_widget = f"""
         <div style="height: 500px;">
-          <div id="tradingview_chart" style="height: 100%;"></div>
-          <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-          <script type="text/javascript">
-          new TradingView.widget({{
-            "autosize": true, "symbol": "{TV_TICKERS[selected_asset]}", "interval": "15",
-            "timezone": "Europe/Kyiv", "theme": "dark", "style": "1", "locale": "uk",
-            "toolbar_bg": "#f1f3f6", "enable_publishing": false, "container_id": "tradingview_chart"
-          }});
-          </script>
+            <div id="tradingview_chart" style="height: 100%;"></div>
+            <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+            <script type="text/javascript">
+                new TradingView.widget({{
+                    "autosize": true,
+                    "symbol": "{TV_TICKERS[selected_asset]}",
+                    "interval": "15",
+                    "timezone": "Europe/Kyiv",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "uk",
+                    "enable_publishing": false,
+                    "hide_top_toolbar": false,
+                    "hide_side_toolbar": false,
+                    "allow_symbol_change": true,
+                    "save_image": false,
+                    "container_id": "tradingview_chart"
+                }});
+            </script>
         </div>
         """
         st.components.v1.html(tv_widget, height=500)
@@ -225,11 +235,25 @@ with tab2:
 
     @st.fragment
     def render_news():
-        macro_df = get_sentinel_macro_stable()
-        if not macro_df.empty:
-            st.dataframe(macro_df, width="stretch", hide_index=True)
-        else:
-            st.error("🔌 Помилка зв'язку з сервером новин.")
+        st.subheader("📅 Макроекономічний Календар (Live)")
+        
+        calendar_widget = """
+        <div class="tradingview-widget-container">
+          <div class="tradingview-widget-container__widget"></div>
+          <script type="text/javascript" src="https://s3.tradingview.com/external-embedding/embed-widget-events.js" async>
+          {
+          "colorTheme": "dark",
+          "isTransparent": true,
+          "width": "100%",
+          "height": "500",
+          "locale": "uk",
+          "importanceFilter": "0,1",
+          "currencyFilter": "USD,EUR,GBP,JPY"
+        }
+          </script>
+        </div>
+        """
+        st.components.v1.html(calendar_widget, height=500)
             
     render_news()
 
