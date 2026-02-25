@@ -239,12 +239,6 @@ import google.generativeai as genai
 import logging
 import datetime
 
-
-import streamlit as st
-import pandas as pd
-import google.generativeai as genai
-import logging
-
 with tab3:
     # Оновлена функція парсингу 4 індикаторів з FRED
     @st.cache_data(ttl=3600)
@@ -310,6 +304,32 @@ with tab3:
         with row2_3: 
             st.metric("VIX (Fear Index)", vix_str, delta="FRED Live", delta_color="off", 
                       help="Індекс очікуваної волатильності S&P 500 (індекс страху). Значення вище 20 вказують на підвищену нервозність ринку, вище 30 — на паніку.")
+
+        st.divider()
+        
+        st.subheader("⚠️ Карта системних аномалій")
+        
+        # Динамічна оцінка статусів на основі актуальних даних FRED
+        spread_status = "🔴 Де-інверсія" if actual_spread > 0 else "🟡 Інверсія"
+        spread_cons = "Сигнал початку рецесії" if actual_spread > 0 else "Накопичення системного ризику"
+        
+        rrp_status = "🔴 Критично" if actual_rrp < 500 else ("🟡 Виснаження" if actual_rrp < 1000 else "🟢 В нормі")
+        rrp_cons = "Гострий дефіцит ліквідності" if actual_rrp < 500 else "Поступове скорочення ліквідності"
+        
+        hy_status = "🔴 Паніка" if actual_hy >= 5.0 else ("🟠 Увага" if actual_hy >= 4.0 else "🟢 Стабільно")
+        hy_cons = "Кредитний стиск" if actual_hy >= 4.0 else "Відсутність паніки кредиторів"
+        
+        sahm_status = "🔴 Рецесія" if actual_sahm >= 0.50 else ("🟠 Зростання" if actual_sahm >= 0.30 else "🟢 Норма")
+        sahm_cons = "Зростання безробіття" if actual_sahm >= 0.30 else "Ринок праці стабільний"
+        
+        anomaly_df = pd.DataFrame([
+            {"Індикатор": "10Y-2Y Spread", "Рівень": spread_str, "Статус": spread_status, "Наслідок": spread_cons},
+            {"Індикатор": "Reverse Repo", "Рівень": rrp_str, "Статус": rrp_status, "Наслідок": rrp_cons},
+            {"Індикатор": "High Yield Spread", "Рівень": hy_str, "Статус": hy_status, "Наслідок": hy_cons},
+            {"Індикатор": "Sahm Rule", "Рівень": sahm_str, "Статус": sahm_status, "Наслідок": sahm_cons},
+            {"Індикатор": "Job Search Trends", "Рівень": "+12%", "Статус": "🔴 Аномалія", "Наслідок": "Споживчий песимізм"}
+        ])
+        st.dataframe(anomaly_df, width="stretch", hide_index=True)
 
         st.divider()
         st.subheader("🧠 Sentinel Macro Assessment")
