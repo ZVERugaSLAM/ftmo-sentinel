@@ -238,27 +238,28 @@ import pandas as pd
 import google.generativeai as genai
 import logging
 import datetime
-import pandas_datareader.data as web
+
 
 with tab3:
-    # Функція автоматичного парсингу даних з FRED з кешуванням на 1 годину
+    # Функція прямого парсингу даних з FRED з кешуванням на 1 годину (без pandas_datareader)
     @st.cache_data(ttl=3600)
     def fetch_fred_macro():
         try:
-            end = datetime.date.today()
-            # Запас у 10 днів для обходу вихідних та свят, коли ринки закриті
-            start = end - datetime.timedelta(days=10)
+            # Пряме завантаження CSV з бази ФРС
+            spread_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=T10Y2Y"
+            rrp_url = "https://fred.stlouisfed.org/graph/fredgraph.csv?id=RRPONTSYD"
             
-            # Отримання даних: T10Y2Y (Спред), RRPONTSYD (Reverse Repo у млрд $)
-            df = web.DataReader(['T10Y2Y', 'RRPONTSYD'], 'fred', start, end)
+            # Парсинг спреду (na_values='.' ігнорує вихідні дні, коли ФРС ставить крапку замість цифри)
+            df_spread = pd.read_csv(spread_url, index_col='DATE', parse_dates=True, na_values='.')
+            latest_spread = float(df_spread['T10Y2Y'].dropna().iloc[-1])
             
-            # Витягуємо останнє валідне значення (відкидаючи порожні рядки - NaN)
-            latest_spread = float(df['T10Y2Y'].dropna().iloc[-1])
-            latest_rrp = float(df['RRPONTSYD'].dropna().iloc[-1])
+            # Парсинг RRP
+            df_rrp = pd.read_csv(rrp_url, index_col='DATE', parse_dates=True, na_values='.')
+            latest_rrp = float(df_rrp['RRPONTSYD'].dropna().iloc[-1])
             
             return latest_spread, latest_rrp
         except Exception as e:
-            logging.error(f"Помилка підключення до FRED API: {e}")
+            logging.error(f"Помилка прямого підключення до FRED: {e}")
             return None, None
 
     @st.fragment
