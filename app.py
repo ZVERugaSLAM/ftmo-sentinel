@@ -252,38 +252,43 @@ with tab2:
         query_col, asset_col = st.columns([2, 1])
         
         with asset_col:
-            analyze_target = st.selectbox("Актив:", ["XAUUSD", "XAGUSD", "XCUUSD", "EURUSD", "US100", "US500", "GER40", "AUS200", "DXY", "JP225"], index=0, key="asset_input")
+            analyze_target = st.selectbox(
+                "Актив:", 
+                ["XAUUSD", "XAGUSD", "XCUUSD", "EURUSD", "US100", "GER40", "DXY", "JP225"], 
+                index=0, 
+                key="asset_input"
+            )
         with query_col:
             user_query = st.text_input("Специфічний запит (залиш порожнім для загального звіту):", key="query_input")
         
         if st.button("Провести аналіз Price Action", type="primary"):
-            with st.spinner(f'Завантаження свічкових даних {analyze_target} та синтез звіту...'):
+            with st.spinner(f'Завантаження даних {analyze_target} та генерація звіту...'):
                 ohlcv_text = fetch_price_action(analyze_target)
                 
                 pa_prompt = f"""
-                Виконай технічний аналіз Price Action для активу {analyze_target} за останні 14 торгових днів.
+                Виконай детальний технічний аналіз Price Action для активу {analyze_target} за останні 14 торгових днів.
                 
                 Дані OHLCV (Open, High, Low, Close):
                 {ohlcv_text}
                 
-                Вимоги до аналізу:
-                1. Визнач домінуючий короткостроковий тренд.
-                2. Вкажи точні цінові рівні (POI, підтримка/опір), спираючись виключно на надані максимуми та мінімуми у масиві даних.
-                3. Визнач зони збору ліквідності (пробій екстремумів) або розворотні формації, якщо вони присутні у цифрах.
+                Обов'язкова структура звіту (розкрий кожен пункт розгорнуто, спираючись виключно на конкретні цифри з таблиці):
+                1. Домінуючий тренд: Опиши поточну структуру ринку (висхідна, низхідна, консолідація). Вкажи дати, де відбувся злам структури або підтвердження тренду.
+                2. Ключові рівні (POI / S&R): Визнач точні цінові зони підтримки та опору. Аргументуй їх формування конкретними максимумами (High) та мінімумами (Low) з наданих даних.
+                3. Ліквідність та патерни: Вкажи дні, де відбулося зняття ліквідності (пробій попередніх екстремумів з наступним поверненням ціни) або сформувалися явні розворотні формації.
                 """
                 
                 if user_query:
-                    pa_prompt += f"\nВідповідай на цей специфічний запит трейдера з огляду на надані дані: {user_query}"
+                    pa_prompt += f"\n\nСпецифічний запит трейдера: {user_query}\nІнтегруй детальну відповідь на цей запит у свій аналіз."
                 
-                pa_prompt += "\nФормат: Лаконічний, діловий. Жодних загальних фраз, абстрактних порад чи позитивного підкріплення. Використовуй жирний шрифт для виділення всіх цінових рівнів та дат."
+                pa_prompt += "\n\nФормат: Діловий, жорсткий, аналітичний. Заборонено використовувати загальні фрази. Використовуй марковані списки та жирний шрифт для виділення дат і цінових рівнів."
                 
                 try:
                     pa_model = genai.GenerativeModel(
                         model_name="gemini-2.5-flash",
-                        generation_config={"temperature": 0.1, "max_output_tokens": 2048}
+                        generation_config={"temperature": 0.2, "max_output_tokens": 4096}
                     )
                     response = pa_model.generate_content(pa_prompt)
-                    st.chat_message("assistant").write(response.text)
+                    st.markdown(response.text)
                 except Exception as e:
                     st.error(f"Помилка генерації звіту: {str(e)}")
                     
