@@ -129,7 +129,7 @@ global_risk_pct = 0.5 if three_losses else 1.0
 st.title("🛰 FTMO Sentinel: Intelligence & Risk")
 cols = st.columns(4)
 with cols[0]:
-    val = get_price_safe("DX-Y.NYB")
+    val = get_price_safe("DX=F")
     st.metric("DXY (Долар)", f"{val:.2f}" if val else "---")
 with cols[1]:
     val = get_price_safe("^VIX")
