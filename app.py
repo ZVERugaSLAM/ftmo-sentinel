@@ -1,3 +1,4 @@
+import logging
 import requests
 import pandas as pd
 import streamlit as st
@@ -45,22 +46,6 @@ if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 else:
     st.error("⚠️ Ключ GEMINI_API_KEY не знайдено в Secrets.")
-
-def get_sentinel_analysis(asset, query):
-    prompt = f"Ти — Sentinel AI, елітний фінансовий аналітик. Актив: {asset}. Запит: {query}. Стиль: лаконічний, діловий."
-    
-    # Використовуємо лише актуальні моделі з твого доступу
-    models_to_try = ['gemini-2.5-flash', 'gemini-3-flash-preview', 'gemini-2.0-flash']
-    
-    for model_name in models_to_try:
-        try:
-            model = genai.GenerativeModel(model_name)
-            response = model.generate_content(prompt)
-            return response.text
-        except Exception:
-            continue
-            
-    return "❌ Помилка: Жодна з моделей Gemini не відповіла. Перевірте статус сервісу."
 
 # --- ТЕХНІЧНІ ДАНІ FTMO ---
 FTMO_SPECS = {
@@ -195,12 +180,16 @@ with tab1:
             balance = st.number_input("Баланс ($)", value=10000.0, step=1000.0)
             
             # ІНТЕГРОВАНИЙ РИЗИК-МЕНЕДЖМЕНТ
-            # Створюємо невеликий контейнер для візуального групування
             risk_container = st.container()
             with risk_container:
                 three_losses = st.toggle("3 поспіль SL (Знизити ризик до 0.5%)", key="calc_risk_toggle")
                 global_risk_pct = 0.5 if three_losses else 1.0
-                st.info(f"Активний ризик: **{global_risk_pct}%**")
+                
+                # Динамічна зміна кольору блоку залежно від ризику
+                if three_losses:
+                    st.warning(f"⚠️ Захисний режим: **{global_risk_pct}%**")
+                else:
+                    st.info(f"Активний ризик: **{global_risk_pct}%**")
             
         with row1_col2:
             asset = st.selectbox("Символ / Інструмент", list(FTMO_SPECS.keys()))
@@ -422,11 +411,6 @@ with tab2:
             
     render_news()
 
-import streamlit as st
-import pandas as pd
-import google.generativeai as genai
-import logging
-import datetime
 
 with tab3:
     # Оновлена функція парсингу 4 індикаторів з FRED
