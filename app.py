@@ -548,3 +548,104 @@ with tab3:
                     st.warning("Сервіс макроаналізу тимчасово недоступний. Деталі помилки записано в лог.")
                     
     render_crisis()
+
+with tab4:
+    st.header("📓 Торговий Журнал (Синхронізація MT5)")
+    
+    uploaded_file = st.file_uploader("Завантажте звіт історії MT5 (HTML)", type=["html", "htm"])
+    
+    if uploaded_file is not None:
+        try:
+            with st.spinner("Обробка звіту MT5..."):
+                # Зчитування HTML таблиць (MT5 генерує звіти у вигляді HTML таблиць)
+                tables = pd.read_html(uploaded_file)
+                
+                # Пошук таблиці з закритими угодами (зазвичай містить колонку 'Open Time' або 'Ticket')
+                df_raw = None
+                for table in tables:
+                    if 'Open Time' in table.columns and 'Close Time' in table.columns:
+                        df_raw = table
+                        break
+                
+                if df_raw is None or df_raw.empty:
+                    st.error("Не вдалося знайти таблицю закритих угод у завантаженому файлі.")
+                else:
+                    # Фільтрація лише закритих торгових позицій (виключення балансових операцій)
+                    df_trades = df_raw[df_raw['Type'].isin(['buy', 'sell'])].copy()
+                    
+                    # Створення структури для Google Sheets
+                    df_mapped = pd.DataFrame()
+                    
+                    # 1. Автоматичний парсинг часу та дат
+                    df_trades['Open Time'] = pd.to_datetime(df_trades['Open Time'])
+                    df_trades['Close Time'] = pd.to_datetime(df_trades['Close Time'])
+                    
+                    df_mapped['Дата Входу'] = df_trades['Open Time'].dt.strftime('%Y-%m-%d')
+                    df_mapped['Час Входу'] = df_trades['Open Time'].dt.strftime('%H:%M:%S')
+                    df_mapped['Дата Виходу'] = df_trades['Close Time'].dt.strftime('%Y-%m-%d')
+                    df_mapped['Час Виходу'] = df_trades['Close Time'].dt.strftime('%H:%M:%S')
+                    
+                    # 2. Розрахунок тривалості
+                    duration = df_trades['Close Time'] - df_trades['Open Time']
+                    df_mapped['Тривалість'] = duration.dt.components['hours'].astype(str).str.zfill(2) + ':' + \
+                                              duration.dt.components['minutes'].astype(str).str.zfill(2)
+                    
+                    # 3. Базові параметри
+                    df_mapped['Актив'] = df_trades['Item']
+                    df_mapped['LONG/SHORT'] = df_trades['Type'].map({'buy': 'LONG', 'sell': 'SHORT'})
+                    df_mapped['Ціна Входу'] = df_trades['Price']
+                    df_mapped['Ціна Виходу'] = df_trades['Price.1'] # MT5 зазвичай називає другу колонку Price як Price.1
+                    df_mapped['SL (Ціна)'] = df_trades['S / L']
+                    df_mapped['TP (Ціна)'] = df_trades['T / P']
+                    
+                    # Розрахунок результату (Profit + Swap + Commission)
+                    df_mapped['Результат $'] = pd.to_numeric(df_trades['Profit'], errors='coerce').fillna(0)
+                    if 'Commission' in df_trades.columns:
+                        df_mapped['Результат $'] += pd.to_numeric(df_trades['Commission'], errors='coerce').fillna(0)
+                    if 'Swap' in df_trades.columns:
+                        df_mapped['Результат $'] += pd.to_numeric(df_trades['Swap'], errors='coerce').fillna(0)
+                    
+                    # 4. Поля для ручного заповнення (з дефолтними значеннями)
+                    df_mapped['Ризик %'] = 1.0
+                    df_mapped['Базовий RR'] = 0.0 # Розрахунок можна додати за формулами пізніше
+                    df_mapped['За Планом'] = False
+                    df_mapped['BE (Досягнуто)'] = False
+                    df_mapped['2R (Досягнуто)'] = False
+                    df_mapped['Фактичний RR'] = 0.0
+                    df_mapped['Результат %'] = 0.0
+                    df_mapped['Рейтинг'] = 3
+                    df_mapped['URL Скріншоти'] = ""
+                    df_mapped['Коментарі'] = ""
+                    df_mapped['Початковий Депозит ($)'] = 10000.0
+                    df_mapped['Актуальний Депозит ($)'] = 10000.0
+                    
+                    st.success(f"Успішно імпортовано {len(df_mapped)} угод.")
+                    
+                    # Інтерактивний редактор для дозаповнення даних перед відправкою
+                    st.write("### 📝 Валідація та дозаповнення журналу")
+                    
+                    # Налаштування типів колонок для зручного вводу
+                    column_config = {
+                        "За Планом": st.column_config.CheckboxColumn("За Планом"),
+                        "BE (Досягнуто)": st.column_config.CheckboxColumn("BE"),
+                        "2R (Досягнуто)": st.column_config.CheckboxColumn("2R"),
+                        "Рейтинг": st.column_config.NumberColumn("Рейтинг", min_value=1, max_value=5, step=1),
+                        "URL Скріншоти": st.column_config.LinkColumn("Скріншот")
+                    }
+                    
+                    edited_df = st.data_editor(
+                        df_mapped, 
+                        num_rows="dynamic", 
+                        use_container_width=True,
+                        column_config=column_config,
+                        hide_index=True
+                    )
+                    
+                    st.divider()
+                    if st.button("💾 Експортувати в Google Sheets", type="primary"):
+                        st.info("Функція відправки до API Google Sheets буде активована після налаштування сервісного акаунта.")
+                        # Тут буде код gspread для запису edited_df у твою таблицю
+
+        except Exception as e:
+            st.error(f"Помилка парсингу звіту: {e}")
+            st.caption("Переконайся, що завантажено оригінальний звіт MT5 у форматі HTML (Report -> HTML).")
