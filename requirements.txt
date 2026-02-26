@@ -7,3 +7,5 @@ plotly
 requests
 streamlit>=1.31.0
 yfinance
+lxml
+beautifulsoup4

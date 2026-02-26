@@ -168,7 +168,7 @@ with cols[3]:
     st.metric("S&P 500", f"{val:.2f}" if val else "---")
 
 # --- ОСНОВНИЙ РОБОЧИЙ ПРОСТІР ---
-tab1, tab2, tab3 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence", "🚨 Crisis Watch"])
+tab1, tab2, tab3, tab4 = st.tabs(["🧮 Calculator", "📊 Macro Intelligence", "🚨 Crisis Watch", "📓 Trade Journal"])
 
 # 1. КАЛЬКУЛЯТОР (Ізольований фрагмент з редизайном 2x2)
 with tab1:
@@ -557,95 +557,102 @@ with tab4:
     if uploaded_file is not None:
         try:
             with st.spinner("Обробка звіту MT5..."):
-                # Зчитування HTML таблиць (MT5 генерує звіти у вигляді HTML таблиць)
-                tables = pd.read_html(uploaded_file)
+                from bs4 import BeautifulSoup
+                import pandas as pd
                 
-                # Пошук таблиці з закритими угодами (зазвичай містить колонку 'Open Time' або 'Ticket')
-                df_raw = None
-                for table in tables:
-                    if 'Open Time' in table.columns and 'Close Time' in table.columns:
-                        df_raw = table
-                        break
+                raw_bytes = uploaded_file.getvalue()
                 
-                if df_raw is None or df_raw.empty:
-                    st.error("Не вдалося знайти таблицю закритих угод у завантаженому файлі.")
+                soup = BeautifulSoup(raw_bytes, "html.parser")
+                trs = soup.find_all('tr')
+                
+                parsed_data = []
+                capture = False
+                
+                for tr in trs:
+                    cells = tr.find_all(['td', 'th'])
+                    
+                    # 1. Витягуємо текст, видаляємо невидимі символи (&nbsp;) та пробіли
+                    row_text = [c.get_text().replace('\xa0', '').strip() for c in cells]
+                    
+                    # 2. ВБИВАЄМО ПРИХОВАНІ КОЛОНКИ-РОЗПІРКИ ВІД MT5 (фільтруємо пустоту)
+                    row_text = [x for x in row_text if x != '']
+                    
+                    if not row_text:
+                        continue
+                        
+                    # 3. Знаходимо заголовок таблиці Positions
+                    if len(row_text) >= 13 and ('time' in row_text[0].lower() or 'час' in row_text[0].lower()) and ('position' in row_text[1].lower() or 'позиці' in row_text[1].lower() or 'позици' in row_text[1].lower()):
+                        capture = True
+                        continue
+                        
+                    if capture:
+                        # Зупинка, якщо почався інший блок (Orders, Deals тощо)
+                        if len(row_text) > 0 and row_text[0].lower() in ['orders', 'deals', 'open positions', 'ордери', 'угоди', 'сделки']:
+                            break
+                            
+                        # Відбір лише закритих угод (buy / sell)
+                        if len(row_text) >= 13:
+                            trade_type = row_text[3].lower()
+                            if trade_type in ['buy', 'sell']:
+                                # Беремо рівно 13 чистих значень
+                                parsed_data.append(row_text[:13])
+                                
+                if not parsed_data:
+                    st.error("Не знайдено угод у блоці 'Positions'. Перевірте формат звіту.")
                 else:
-                    # Фільтрація лише закритих торгових позицій (виключення балансових операцій)
-                    df_trades = df_raw[df_raw['Type'].isin(['buy', 'sell'])].copy()
+                    target_cols = ['Open Time', 'Position', 'Symbol', 'Type', 'Volume', 'Open Price', 'S/L', 'T/P', 'Close Time', 'Close Price', 'Commission', 'Swap', 'Profit']
+                    df_final = pd.DataFrame(parsed_data, columns=target_cols)
                     
-                    # Створення структури для Google Sheets
-                    df_mapped = pd.DataFrame()
-                    
-                    # 1. Автоматичний парсинг часу та дат
-                    df_trades['Open Time'] = pd.to_datetime(df_trades['Open Time'])
-                    df_trades['Close Time'] = pd.to_datetime(df_trades['Close Time'])
-                    
-                    df_mapped['Дата Входу'] = df_trades['Open Time'].dt.strftime('%Y-%m-%d')
-                    df_mapped['Час Входу'] = df_trades['Open Time'].dt.strftime('%H:%M:%S')
-                    df_mapped['Дата Виходу'] = df_trades['Close Time'].dt.strftime('%Y-%m-%d')
-                    df_mapped['Час Виходу'] = df_trades['Close Time'].dt.strftime('%H:%M:%S')
-                    
-                    # 2. Розрахунок тривалості
-                    duration = df_trades['Close Time'] - df_trades['Open Time']
-                    df_mapped['Тривалість'] = duration.dt.components['hours'].astype(str).str.zfill(2) + ':' + \
-                                              duration.dt.components['minutes'].astype(str).str.zfill(2)
-                    
-                    # 3. Базові параметри
-                    df_mapped['Актив'] = df_trades['Item']
-                    df_mapped['LONG/SHORT'] = df_trades['Type'].map({'buy': 'LONG', 'sell': 'SHORT'})
-                    df_mapped['Ціна Входу'] = df_trades['Price']
-                    df_mapped['Ціна Виходу'] = df_trades['Price.1'] # MT5 зазвичай називає другу колонку Price як Price.1
-                    df_mapped['SL (Ціна)'] = df_trades['S / L']
-                    df_mapped['TP (Ціна)'] = df_trades['T / P']
-                    
-                    # Розрахунок результату (Profit + Swap + Commission)
-                    df_mapped['Результат $'] = pd.to_numeric(df_trades['Profit'], errors='coerce').fillna(0)
-                    if 'Commission' in df_trades.columns:
-                        df_mapped['Результат $'] += pd.to_numeric(df_trades['Commission'], errors='coerce').fillna(0)
-                    if 'Swap' in df_trades.columns:
-                        df_mapped['Результат $'] += pd.to_numeric(df_trades['Swap'], errors='coerce').fillna(0)
-                    
-                    # 4. Поля для ручного заповнення (з дефолтними значеннями)
-                    df_mapped['Ризик %'] = 1.0
-                    df_mapped['Базовий RR'] = 0.0 # Розрахунок можна додати за формулами пізніше
-                    df_mapped['За Планом'] = False
-                    df_mapped['BE (Досягнуто)'] = False
-                    df_mapped['2R (Досягнуто)'] = False
-                    df_mapped['Фактичний RR'] = 0.0
-                    df_mapped['Результат %'] = 0.0
-                    df_mapped['Рейтинг'] = 3
-                    df_mapped['URL Скріншоти'] = ""
-                    df_mapped['Коментарі'] = ""
-                    df_mapped['Початковий Депозит ($)'] = 10000.0
-                    df_mapped['Актуальний Депозит ($)'] = 10000.0
-                    
-                    st.success(f"Успішно імпортовано {len(df_mapped)} угод.")
-                    
-                    # Інтерактивний редактор для дозаповнення даних перед відправкою
-                    st.write("### 📝 Валідація та дозаповнення журналу")
-                    
-                    # Налаштування типів колонок для зручного вводу
-                    column_config = {
-                        "За Планом": st.column_config.CheckboxColumn("За Планом"),
-                        "BE (Досягнуто)": st.column_config.CheckboxColumn("BE"),
-                        "2R (Досягнуто)": st.column_config.CheckboxColumn("2R"),
-                        "Рейтинг": st.column_config.NumberColumn("Рейтинг", min_value=1, max_value=5, step=1),
-                        "URL Скріншоти": st.column_config.LinkColumn("Скріншот")
-                    }
+                    # Очищення числових значень (коми на крапки, видалення пробілів)
+                    def clean_numeric(series):
+                        s = series.astype(str).str.replace(r'\s+', '', regex=True).str.replace(',', '.')
+                        return pd.to_numeric(s, errors='coerce').fillna(0.0)
+
+                    num_cols = ['Volume', 'Open Price', 'S/L', 'T/P', 'Close Price', 'Commission', 'Swap', 'Profit']
+                    for col in num_cols:
+                        df_final[col] = clean_numeric(df_final[col])
+                        
+                    st.write("### 📝 Дані з таблиці Positions")
                     
                     edited_df = st.data_editor(
-                        df_mapped, 
+                        df_final, 
                         num_rows="dynamic", 
                         use_container_width=True,
-                        column_config=column_config,
                         hide_index=True
                     )
                     
+                    # Динамічний підрахунок
+                    total_profit = edited_df['Profit'].sum()
+                    color = "green" if total_profit > 0 else "red" if total_profit < 0 else "gray"
+                    st.markdown(f"**Підсумок Profit:** <span style='color:{color}; font-size:18px'>**{total_profit:.2f}**</span>", unsafe_allow_html=True)
+                    
                     st.divider()
                     if st.button("💾 Експортувати в Google Sheets", type="primary"):
-                        st.info("Функція відправки до API Google Sheets буде активована після налаштування сервісного акаунта.")
-                        # Тут буде код gspread для запису edited_df у твою таблицю
+                        with st.spinner("З'єднання з Google Sheets..."):
+                            try:
+                                import gspread
+                                from google.oauth2.service_account import Credentials
+                                
+                                scopes = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+                                skey = dict(st.secrets["gcp_service_account"])
+                                credentials = Credentials.from_service_account_info(skey, scopes=scopes)
+                                gc = gspread.authorize(credentials)
+                                
+                                sheet_url = st.secrets["google_sheets"]["journal_url"]
+                                sh = gc.open_by_url(sheet_url)
+                                worksheet = sh.sheet1
+                                
+                                if len(worksheet.get_all_values()) == 0:
+                                    worksheet.append_row(target_cols)
+                                
+                                edited_df_clean = edited_df.fillna("").astype(str)
+                                data_to_append = edited_df_clean.values.tolist()
+                                
+                                worksheet.append_rows(data_to_append)
+                                st.success(f"✅ Успішно експортовано {len(data_to_append)} рядків!")
+                                
+                            except Exception as e:
+                                st.error(f"Помилка запису: {e}")
 
         except Exception as e:
-            st.error(f"Помилка парсингу звіту: {e}")
-            st.caption("Переконайся, що завантажено оригінальний звіт MT5 у форматі HTML (Report -> HTML).")
+            st.error(f"Критична помилка обробки: {e}")
